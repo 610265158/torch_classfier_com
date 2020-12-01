@@ -296,11 +296,13 @@ class AlaskaDataIter():
 
         if is_training:
 
-            image=self.train_trans(image=image)['image']
+            # image=self.train_trans(image=image)['image']
+            #
+            # ###cutout
+            # if random.uniform(0, 1) >= 0.5:
+            #     image=self.random_dash(image,8,32)
 
-            ###cutout
-            if random.uniform(0, 1) >= 0.5:
-                image=self.random_dash(image,8,32)
+            image = self.val_trans(image=image)['image']
             if random.uniform(0, 1) >= 0.5:
                 image,_= Mirror(image)
 
