@@ -12,7 +12,7 @@ from train_config import config as cfg
 import setproctitle
 
 
-setproctitle.setproctitle("torch_classifier")
+setproctitle.setproctitle("comp")
 
 
 def main():
