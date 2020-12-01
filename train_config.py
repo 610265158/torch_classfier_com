@@ -22,7 +22,7 @@ config.TRAIN.epoch = 30
 config.TRAIN.init_lr=5.e-4
 
 config.TRAIN.weight_decay_factor = 1.e-3                                  ####l2
-config.TRAIN.vis=False                                                      #### if to check the training data
+config.TRAIN.vis=True                                                      #### if to check the training data
 
 
 config.TRAIN.vis_mixcut=False

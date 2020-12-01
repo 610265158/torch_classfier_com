@@ -89,7 +89,7 @@ class Train(object):
     # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,mode='max', patience=3,verbose=True)
     self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
 
-    self.criterion = BCEWithLogitsLoss(smooth_eps=0.).to(self.device)
+    self.criterion = LabelSmoothing(smoothing=0.).to(self.device)
 
 
   def custom_loop(self):
@@ -132,7 +132,7 @@ class Train(object):
         images, target = self.train_ds()
 
         data = torch.from_numpy(images).to(self.device).float()
-        target = torch.from_numpy(target).to(self.device).float()
+        target = torch.from_numpy(target).to(self.device).long()
 
         batch_size = data.shape[0]
 
@@ -200,7 +200,7 @@ class Train(object):
             for step in range(self.val_ds.size):
                 images, target = self.val_ds()
                 data = torch.from_numpy(images).to(self.device).float()
-                target = torch.from_numpy(target).to(self.device).float()
+                target = torch.from_numpy(target).to(self.device).long()
                 batch_size = data.shape[0]
 
 

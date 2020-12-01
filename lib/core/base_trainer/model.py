@@ -35,9 +35,11 @@ class Net(nn.Module):
 
         # self.mean_tensor=torch.from_numpy(cfg.DATA.PIXEL_MEAN ).float().cuda()
         # self.std_val_tensor = torch.from_numpy(cfg.DATA.PIXEL_STD).float().cuda()
+        # self.model = EfficientNet.from_pretrained(model_name='efficientnet-b0')
+        # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
 
-        self.model = timm.create_model('efficientnet_b0', pretrained=True)
-
+        # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
+        self.model = timm.create_model('efficientnet_b3', pretrained=True)
 
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 
@@ -63,7 +65,6 @@ class Net(nn.Module):
         x = self._fc(feature)
 
 
-        x= torch.nn.functional.sigmoid(x)
         return x
 
 

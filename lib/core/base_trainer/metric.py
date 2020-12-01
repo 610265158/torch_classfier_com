@@ -39,7 +39,7 @@ class ACCMeter(object):
 
     def update(self, y_true, y_pred):
         y_true = y_true.cpu().numpy()
-        y_true = np.argmax(y_true,1)
+
         y_pred = torch.sigmoid(y_pred).data.cpu().numpy()
         y_pred = np.argmax(y_pred,1)
 

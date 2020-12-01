@@ -313,5 +313,5 @@ class AlaskaDataIter():
 
         image=image.astype(np.uint8)
 
-        one_hot_label=self.onehot(label,depth=cfg.MODEL.num_class)
-        return image,one_hot_label
+
+        return image,label
