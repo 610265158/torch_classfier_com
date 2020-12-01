@@ -39,7 +39,7 @@ class Net(nn.Module):
         # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
 
         # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
-        self.model = timm.create_model('efficientnet_b3', pretrained=True)
+        self.model = timm.create_model('efficientnet_b0', pretrained=True)
 
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 
@@ -50,7 +50,6 @@ class Net(nn.Module):
     def forward(self, inputs):
 
         #do preprocess
-
 
         input_iid = inputs
         input_iid=input_iid/255.
