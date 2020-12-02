@@ -50,5 +50,21 @@ class ACCMeter(object):
     @property
     def avg(self):
         right=(self.y_pred==self.y_true).astype(np.float)
+
+        ###
+
+        for i in range(5):
+            index=(self.y_true==i)
+
+            cur_y_true=self.y_true[index]
+            cur_y_pre=self.y_pred[index]
+
+            cur_acc=np.sum(cur_y_true==cur_y_pre)/np.sum(index)
+
+            logger.info(' for class %d, acc %.6f' %(i, cur_acc))
+            
+
+
+
         return np.sum(right)/self.y_true.shape[0]
 
