@@ -17,12 +17,12 @@ config.TRAIN.num_gpu = 1
 config.TRAIN.batch_size = 32
 config.TRAIN.log_interval = 10                  ##10 iters for a log msg
 config.TRAIN.test_interval = 1
-config.TRAIN.epoch = 30
+config.TRAIN.epoch = 100
 
 config.TRAIN.init_lr=5.e-4
 
-config.TRAIN.weight_decay_factor = 1.e-3                                  ####l2
-config.TRAIN.vis=True                                                      #### if to check the training data
+config.TRAIN.weight_decay_factor = 1.e-5                                  ####l2
+config.TRAIN.vis=False                                                      #### if to check the training data
 
 
 config.TRAIN.vis_mixcut=False
@@ -35,8 +35,8 @@ config.TRAIN.opt='Adamw'
 
 config.MODEL = edict()
 config.MODEL.model_path = './models/'                                        ## save directory
-config.MODEL.height =  224                                        # input size during training , 128,160,   depends on
-config.MODEL.width  =  224
+config.MODEL.height =  512                                        # input size during training , 128,160,   depends on
+config.MODEL.width  =  512
 
 config.MODEL.channel = 3
 
@@ -52,7 +52,7 @@ config.DATA.PIXEL_STD = np.array([0.238, 0.219, 0.232]).reshape(1,3,1,1)
 ####mainly hyper params
 config.TRAIN.warmup_step=3000
 config.TRAIN.opt='Adamw'
-config.TRAIN.SWA=-1    ### -1 use no swa   from which epoch start SWA
+config.TRAIN.SWA=0    ### -1 use no swa   from which epoch start SWA
 config.MODEL.label_smooth=0.05
 config.MODEL.cutmix=0.0
 config.MODEL.mixup=0.0

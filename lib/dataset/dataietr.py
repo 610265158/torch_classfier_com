@@ -144,25 +144,35 @@ class AlaskaDataIter():
 
         self.lst = self.parse_file(data)
 
+        self.data_distribution=self.balance_data(self.lst)
 
-
-
-        self.train_trans=A.Compose([A.RandomResizedCrop(scale=(0.7,1.3),
+        #
+        #
+        # self.lst =[]
+        # for k,v in self.data_distribution.items():
+        #     self.lst+=v
+        #
+        # logger.info('after balance contains%d samples'%len(self.lst))
+        self.train_trans=A.Compose([A.RandomResizedCrop(scale=(0.8,1.2),
                                                         height=cfg.MODEL.height,
                                                         width=cfg.MODEL.width
                                                         ),
-                                    A.ShiftScaleRotate(shift_limit=0.0625,
-                                                 scale_limit=0.50,
-                                                 rotate_limit=180,
+                                    A.ShiftScaleRotate(shift_limit=0.3,
+                                                 scale_limit=0.5,
+                                                 rotate_limit=0,
                                                  p=1.,
                                                  border_mode=cv2.BORDER_CONSTANT,
-                                                 value=0,
-                                                 interpolation=cv2.INTER_AREA),
+                                                 value=0),
                                     A.RandomBrightnessContrast(p=0.75,brightness_limit=0.1,contrast_limit=0.2),
-
-                                    A.CLAHE(clip_limit=4.0, p=0.7),
+                                    #
+                                    # A.CLAHE(clip_limit=4.0, p=0.7),
                                     A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20,
                                                                   val_shift_limit=10, p=0.5),
+                                    A.OneOf([
+                                        A.IAAAffine(),
+                                        A.IAAPerspective()
+
+                                    ], p=0.7),
 
                                     A.OneOf([
                                         A.MotionBlur(blur_limit=5),
@@ -173,6 +183,10 @@ class AlaskaDataIter():
 
                                     A.Resize(height=cfg.MODEL.height,
                                              width=cfg.MODEL.width),
+
+                                    A.HorizontalFlip(p=0.5),
+                                    A.VerticalFlip(p=0.5),
+                                    A.RandomRotate90(p=0.5)
                               ])
 
 
@@ -181,6 +195,9 @@ class AlaskaDataIter():
 
                                   ])
     def __call__(self, *args, **kwargs):
+
+
+
         idxs = np.arange(len(self.lst))
 
         # while True:
@@ -188,6 +205,10 @@ class AlaskaDataIter():
             np.random.shuffle(idxs)
         for k in idxs:
             yield self.single_map_func(self.lst[k], self.training_flag)
+
+
+
+
 
     def __len__(self):
         assert self.raw_data_set_size is not None
@@ -207,22 +228,57 @@ class AlaskaDataIter():
 
         return all_samples
 
+    def balance_data(self,samples):
+
+
+        data_distribution={}
+        for dp in samples:
+            fname = dp[0]
+
+            label = int(dp[1])
+            if label in data_distribution:
+                data_distribution[label].append(dp)
+            else:
+                data_distribution[label]=[dp]
+            # if self.training_flag:
+            #     if label==4 or label==1 or label==2:
+            #         for jj in range(4):
+            #             data_distribution[label].append(dp)
+            #
+            #     elif label==0:
+            #         for jj in range(10):
+            #             data_distribution[label].append(dp)
+
+        for k,v in data_distribution.items():
+            logger.info('for class %d contains: %d samples'%(k,len(v)))
+
+        return data_distribution
+
+
     def cracy_rotate(self, image, block_nums=2):
 
-        block_size = 512 // block_nums
+
+        pitches=[]
+        block_size = 384 // block_nums
         for i in range(block_nums):
             for j in range(block_nums):
                 cur_pitch = image[i * block_size:(i + 1) * block_size, j * block_size:(j + 1) * block_size, :]
 
-                if random.uniform(0, 1) >= 0.5:
-                    cur_pitch = np.fliplr(cur_pitch)
-                if random.uniform(0, 1) >= 0.5:
-                    cur_pitch = np.flipud(cur_pitch)
 
                 if random.uniform(0, 1) >= 0.5:
-                    random_angle = [-1, 1]
+                    random_angle = [0,1,2,3]
                     cur_pitch = np.rot90(cur_pitch, random.choice(random_angle))
-                image[i * block_size:(i + 1) * block_size, j * block_size:(j + 1) * block_size, :] = cur_pitch
+
+                pitches.append(cur_pitch)
+        random.shuffle(pitches)
+
+        cnt=0
+        for i in range(block_nums):
+            for j in range(block_nums):
+
+                image[i * block_size:(i + 1) * block_size, j * block_size:(j + 1) * block_size, :] = pitches[cnt]
+
+                cnt+=1
 
         return image
 
@@ -296,15 +352,14 @@ class AlaskaDataIter():
 
         if is_training:
 
-            # image=self.train_trans(image=image)['image']
-            #
-            # ###cutout
-            # if random.uniform(0, 1) >= 0.5:
-            #     image=self.random_dash(image,8,32)
+            image=self.train_trans(image=image)['image']
 
-            image = self.val_trans(image=image)['image']
+            # ###cutout
             if random.uniform(0, 1) >= 0.5:
-                image,_= Mirror(image)
+                image=self.random_dash(image,8,32)
+
+            # if random.uniform(0, 1) >= 0.5:
+            #     image= self.cracy_rotate(image,4)
 
         else:
 

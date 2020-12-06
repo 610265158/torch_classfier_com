@@ -39,7 +39,7 @@ class Net(nn.Module):
         # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
 
         # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
-        self.model = timm.create_model('efficientnet_b0', pretrained=True)
+        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True)
 
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 

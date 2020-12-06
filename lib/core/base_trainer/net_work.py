@@ -76,7 +76,7 @@ class Train(object):
     if cfg.TRAIN.num_gpu>1:
         self.model=nn.DataParallel(self.model)
 
-    self.ema = EMA(self.model, 0.999)
+    self.ema = EMA(self.model, 0.97)
 
     self.ema.register()
     ###control vars
@@ -86,10 +86,13 @@ class Train(object):
 
     self.val_ds = val_ds
 
-    # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,mode='max', patience=3,verbose=True)
-    self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
+    self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,mode='max', patience=5,
+                                                                min_lr=1e-6,factor=0.5,verbose=True)
+    # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
 
-    self.criterion = LabelSmoothing(smoothing=0.).to(self.device)
+    self.criterion = LabelSmoothing(smoothing=0.1).to(self.device)
+
+    self.criterion_val = LabelSmoothing(smoothing=0.0).to(self.device)
 
 
   def custom_loop(self):
@@ -138,10 +141,10 @@ class Train(object):
 
 
         if random.uniform(0,1)<cfg.MODEL.mixup:
-            mixued_data,mixued_target=mixup(data,target,0.5)
+            mixued_data,mixued_target=cutmix(data,target,0.5)
 
             output = self.model(mixued_data)
-            current_loss = mixup_criterion(output, mixued_target,self.criterion)
+            current_loss = cutmix_criterion(output, mixued_target,self.criterion)
 
 
         else:
@@ -205,7 +208,7 @@ class Train(object):
 
 
                 output = self.model(data)
-                loss = self.criterion(output, target)
+                loss = self.criterion_val(output, target)
 
                 summary_loss.update(loss.detach().item(), batch_size)
                 acc_score.update(target, output)
@@ -262,8 +265,8 @@ class Train(object):
                                    self.fold,epoch, summary_loss.avg,acc_score.avg, (time.time() - t))
           logger.info(val_epoch_log_message)
 
-      self.scheduler.step()
-      # self.scheduler.step(final_scores.avg)
+      # self.scheduler.step()
+      self.scheduler.step(acc_score.avg)
 
 
 

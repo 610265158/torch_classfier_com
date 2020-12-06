@@ -21,9 +21,9 @@ def main():
 
 
     ### 5 fold
-    n_fold=5
+    n_fold=10
     def split(n_fold=5):
-        n_fold=5
+        n_fold=10
 
         data=pd.read_csv(cfg.DATA.data_file)
 
