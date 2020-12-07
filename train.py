@@ -21,21 +21,27 @@ def main():
 
 
     ### 5 fold
-    n_fold=10
+
     def split(n_fold=5):
-        n_fold=10
 
         data=pd.read_csv(cfg.DATA.data_file)
 
         data['fold'] = -1
         Fold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
-        for fold, (train_index, test_index) in enumerate(Fold.split(data, data['label'])):
-            data['fold'][test_index] = fold
+
+
+        data_2020=data[data['source']==2020]
+        data_2019=data[data['source']==2019]
+        for fold, (train_index, test_index) in enumerate(Fold.split(data_2020, data_2020['label'])):
+            data_2020['fold'][test_index] = fold
+
+
+        data=data_2020.append(data_2019)
+
 
         return data
 
-
-
+    n_fold = 5
     data=split(n_fold)
 
 

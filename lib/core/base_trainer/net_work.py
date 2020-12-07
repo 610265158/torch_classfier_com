@@ -86,9 +86,9 @@ class Train(object):
 
     self.val_ds = val_ds
 
-    self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,mode='max', patience=5,
-                                                                min_lr=1e-6,factor=0.5,verbose=True)
-    # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
+    # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,mode='max', patience=5,
+    #                                                             min_lr=1e-6,factor=0.5,verbose=True)
+    self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
 
     self.criterion = LabelSmoothing(smoothing=0.1).to(self.device)
 
@@ -265,10 +265,8 @@ class Train(object):
                                    self.fold,epoch, summary_loss.avg,acc_score.avg, (time.time() - t))
           logger.info(val_epoch_log_message)
 
-      # self.scheduler.step()
-      self.scheduler.step(acc_score.avg)
-
-
+      self.scheduler.step()
+      # self.scheduler.step(acc_score.avg)
 
       #### save model
       if not os.access(cfg.MODEL.model_path, os.F_OK):

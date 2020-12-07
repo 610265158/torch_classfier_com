@@ -159,11 +159,11 @@ class AlaskaDataIter():
                                                         ),
                                     A.ShiftScaleRotate(shift_limit=0.3,
                                                  scale_limit=0.5,
-                                                 rotate_limit=0,
-                                                 p=1.,
+                                                 rotate_limit=180,
+                                                 p=0.8,
                                                  border_mode=cv2.BORDER_CONSTANT,
                                                  value=0),
-                                    A.RandomBrightnessContrast(p=0.75,brightness_limit=0.1,contrast_limit=0.2),
+                                    A.RandomBrightnessContrast(p=0.5,brightness_limit=0.1,contrast_limit=0.2),
                                     #
                                     # A.CLAHE(clip_limit=4.0, p=0.7),
                                     A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20,
@@ -172,21 +172,21 @@ class AlaskaDataIter():
                                         A.IAAAffine(),
                                         A.IAAPerspective()
 
-                                    ], p=0.7),
+                                    ], p=0.5),
 
                                     A.OneOf([
                                         A.MotionBlur(blur_limit=5),
                                         A.MedianBlur(blur_limit=5),
                                         A.GaussianBlur(blur_limit=5),
                                         A.GaussNoise(var_limit=(5.0, 30.0)),
-                                    ], p=0.7),
+                                    ], p=0.5),
 
                                     A.Resize(height=cfg.MODEL.height,
                                              width=cfg.MODEL.width),
 
                                     A.HorizontalFlip(p=0.5),
                                     A.VerticalFlip(p=0.5),
-                                    A.RandomRotate90(p=0.5)
+
                               ])
 
 
@@ -195,8 +195,6 @@ class AlaskaDataIter():
 
                                   ])
     def __call__(self, *args, **kwargs):
-
-
 
         idxs = np.arange(len(self.lst))
 
