@@ -19,7 +19,7 @@ config.TRAIN.log_interval = 10                  ##10 iters for a log msg
 config.TRAIN.test_interval = 1
 config.TRAIN.epoch = 15
 
-config.TRAIN.init_lr=1.e-3
+config.TRAIN.init_lr=5.e-4
 
 config.TRAIN.weight_decay_factor = 1.e-5                                  ####l2
 config.TRAIN.vis=False                                                      #### if to check the training data
@@ -50,12 +50,12 @@ config.DATA.PIXEL_MEAN = np.array([ 0.460, 0.442 ,0.390 ]).reshape(1,3,1,1)     
 config.DATA.PIXEL_STD = np.array([0.238, 0.219, 0.232]).reshape(1,3,1,1)
 
 ####mainly hyper params
-config.TRAIN.warmup_step=3000
+config.TRAIN.warmup_step=1500
 config.TRAIN.opt='Adamw'
 config.TRAIN.SWA=0    ### -1 use no swa   from which epoch start SWA
 config.MODEL.label_smooth=0.05
-config.MODEL.cutmix=0.0
-config.MODEL.mixup=0.0
+config.MODEL.cutmix=0.3
+config.MODEL.mixup=0.3
 config.MODEL.gempool=False
 
 config.MODEL.pretrained_model=None

@@ -140,13 +140,18 @@ class Train(object):
         batch_size = data.shape[0]
 
 
-        if random.uniform(0,1)<cfg.MODEL.mixup:
-            mixued_data,mixued_target=cutmix(data,target,0.5)
+
+        rand_dice=random.uniform(0,1)
+        if rand_dice<cfg.MODEL.mixup:
+            mixued_data,mixued_target=mixup(data,target,0.5)
 
             output = self.model(mixued_data)
-            current_loss = cutmix_criterion(output, mixued_target,self.criterion)
+            current_loss = mixup_criterion(output, mixued_target,self.criterion)
+        elif rand_dice>cfg.MODEL.mixup and rand_dice<cfg.MODEL.mixup+cfg.MODEL.cutmix:
+            mixued_data, mixued_target = cutmix(data, target, 0.5)
 
-
+            output = self.model(mixued_data)
+            current_loss = cutmix_criterion(output, mixued_target, self.criterion)
         else:
             output = self.model(data)
 
