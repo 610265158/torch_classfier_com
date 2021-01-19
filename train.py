@@ -29,14 +29,19 @@ def main():
         data['fold'] = -1
         Fold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
 
+        if "merge" in cfg.DATA.data_file:
+            data_2020=data[data['source']==2020]
+            data_2019=data[data['source']==2019]
+            for fold, (train_index, test_index) in enumerate(Fold.split(data_2020, data_2020['label'])):
+                data_2020['fold'][test_index] = fold
 
-        data_2020=data[data['source']==2020]
-        data_2019=data[data['source']==2019]
-        for fold, (train_index, test_index) in enumerate(Fold.split(data_2020, data_2020['label'])):
-            data_2020['fold'][test_index] = fold
 
+            data=data_2020.append(data_2019)
+        else:
 
-        data=data_2020.append(data_2019)
+            for fold, (train_index, test_index) in enumerate(Fold.split(data, data['label'])):
+                data['fold'][test_index] = fold
+
 
 
         return data
