@@ -176,7 +176,7 @@ class AlaskaDataIter():
                                         A.GaussianBlur(blur_limit=5),
                                         A.GaussNoise(var_limit=(5.0, 30.0)),
                                     ], p=0.5),
-                                    A.CoarseDropout(p=0.5)
+                                    
 
 
                               ])
@@ -338,6 +338,7 @@ class AlaskaDataIter():
 
         fname = os.path.join(cfg.DATA.data_root_path,dp[0])
 
+        print(fname)
         label = int(dp[1])
 
         image = cv2.imread(fname, -1)
@@ -349,7 +350,7 @@ class AlaskaDataIter():
 
             # ###cutout
             if random.uniform(0, 1) >= 0.5:
-                image=self.random_dash(image,8,32)
+                image=self.random_dash(image,8,64)
 
             # if random.uniform(0, 1) >= 0.5:
             #     image= self.cracy_rotate(image,4)
