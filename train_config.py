@@ -54,8 +54,8 @@ config.TRAIN.warmup_step=1500
 config.TRAIN.opt='Adamw'
 config.TRAIN.SWA=0    ### -1 use no swa   from which epoch start SWA
 config.MODEL.label_smooth=0.05
-config.MODEL.cutmix=0.3
-config.MODEL.mixup=0.3
+config.MODEL.cutmix=0.0
+config.MODEL.mixup=0.5
 config.MODEL.gempool=False
 
 config.MODEL.pretrained_model=None

@@ -62,7 +62,7 @@ class Train(object):
                                          weight_decay=self.l2_regularization)
     else:
       self.optimizer = torch.optim.SGD(self.model.parameters(),
-                                       lr=0.001,
+                                       lr=self.init_lr,
                                        momentum=0.9,
                                        weight_decay=self.l2_regularization)
 
@@ -90,7 +90,7 @@ class Train(object):
     #                                                             min_lr=1e-6,factor=0.5,verbose=True)
     self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
 
-    self.criterion = LabelSmoothing(smoothing=0.1).to(self.device)
+    self.criterion = LabelSmoothing(smoothing=cfg.MODEL.label_smooth).to(self.device)
 
     self.criterion_val = LabelSmoothing(smoothing=0.0).to(self.device)
 
