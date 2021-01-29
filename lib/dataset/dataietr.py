@@ -153,21 +153,17 @@ class AlaskaDataIter():
         #     self.lst+=v
         #
         # logger.info('after balance contains%d samples'%len(self.lst))
-        self.train_trans=A.Compose([A.RandomResizedCrop(scale=(0.8,1.2),
-                                                        height=cfg.MODEL.height,
+        self.train_trans=A.Compose([A.RandomResizedCrop(height=cfg.MODEL.height,
                                                         width=cfg.MODEL.width
                                                         ),
-                                    A.ShiftScaleRotate(shift_limit=0.3,
-                                                 scale_limit=0.5,
-                                                 rotate_limit=180,
-                                                 p=0.8,
-                                                 border_mode=cv2.BORDER_CONSTANT,
-                                                 value=0),
-                                    A.RandomBrightnessContrast(p=0.5,brightness_limit=0.1,contrast_limit=0.2),
-                                    #
-                                    # A.CLAHE(clip_limit=4.0, p=0.7),
-                                    A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20,
-                                                                  val_shift_limit=10, p=0.5),
+                                    A.Transpose(p=0.5),
+                                    A.HorizontalFlip(p=0.5),
+                                    A.VerticalFlip(p=0.5),
+                                    A.ShiftScaleRotate(p=0.5),
+                                    A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2,
+                                                       p=0.5),
+                                    A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1),
+                                                             p=0.5),
                                     A.OneOf([
                                         A.IAAAffine(),
                                         A.IAAPerspective()
@@ -180,17 +176,16 @@ class AlaskaDataIter():
                                         A.GaussianBlur(blur_limit=5),
                                         A.GaussNoise(var_limit=(5.0, 30.0)),
                                     ], p=0.5),
+                                    A.CoarseDropout(p=0.5)
 
-                                    A.Resize(height=cfg.MODEL.height,
-                                             width=cfg.MODEL.width),
-
-                                    A.HorizontalFlip(p=0.5),
-                                    A.VerticalFlip(p=0.5),
 
                               ])
 
 
-        self.val_trans=A.Compose([A.Resize(height=cfg.MODEL.height,
+        self.val_trans=A.Compose([ A.CenterCrop(height=cfg.MODEL.height,
+                                                width=cfg.MODEL.width, p=1.),
+
+                                   A.Resize(height=cfg.MODEL.height,
                                            width=cfg.MODEL.width)
 
                                   ])
