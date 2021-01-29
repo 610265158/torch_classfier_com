@@ -39,13 +39,15 @@ class Net(nn.Module):
         # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
 
         # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
-        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True)
+        self.model = timm.create_model('tf_efficientnet_b5_ns', pretrained=True)
 
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 
-        self.dropout=nn.Dropout(0.5)
 
-        self._fc = nn.Linear(1280 , num_classes, bias=True)
+        self. dense1=nn.Sequential(nn.Linear(2048,1024),
+                                   nn.BatchNorm1d(1024),
+                                   nn.ReLU())
+        self._fc = nn.nn.Linear(1024 , num_classes, bias=True)
 
     def forward(self, inputs):
 
@@ -58,10 +60,8 @@ class Net(nn.Module):
         x = self.model.forward_features(input_iid)
         fm = self._avg_pooling(x)
         fm = fm.view(bs, -1)
-        feature=self.dropout(fm)
-
-
-        x = self._fc(feature)
+        fm=self.dense1(fm)
+        x = self._fc(fm)
 
 
         return x
