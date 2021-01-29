@@ -5,7 +5,7 @@ import cv2
 import json
 import numpy as np
 import copy
-import matplotlib.pyplot as plt
+
 from lib.helper.logger import logger
 from tensorpack.dataflow import DataFromGenerator, BatchData, MultiProcessPrefetchData, PrefetchDataZMQ, RepeatedData
 import time
