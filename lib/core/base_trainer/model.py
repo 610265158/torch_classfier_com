@@ -47,7 +47,7 @@ class Net(nn.Module):
         self. dense1=nn.Sequential(nn.Linear(2048,1024),
                                    nn.BatchNorm1d(1024),
                                    nn.ReLU())
-        self._fc = nn.nn.Linear(1024 , num_classes, bias=True)
+        self._fc = nn.Linear(1024 , num_classes, bias=True)
 
     def forward(self, inputs):
 
