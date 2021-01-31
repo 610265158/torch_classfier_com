@@ -26,6 +26,10 @@ def main():
 
         data=pd.read_csv(cfg.DATA.data_file)
 
+        # ##use fix label
+        # fixed_label_index=~pd.isna(data['fixed'])
+        # data['label'][fixed_label_index]=data['fixed'][fixed_label_index]
+
         data['fold'] = -1
         Fold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
 
@@ -51,7 +55,7 @@ def main():
 
 
 
-    for fold in range(n_fold):
+    for fold in range(2,n_fold):
         ###build dataset
 
         train_ind = data[data['fold'] != fold].index.to_list()
