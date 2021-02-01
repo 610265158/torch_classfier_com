@@ -12,7 +12,7 @@ from lib.helper.logger import logger
 from train_config import config as cfg
 
 from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
+
 import setproctitle
 
 from train_config import config as cfg
@@ -22,7 +22,7 @@ import torch
 from tqdm import tqdm
 
 
-weight='fold1_epoch_24_val_loss0.411736.pth'
+weight='./models/fold1_epoch_23_val_loss0.315470.pth'
 fold=1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -107,16 +107,6 @@ class AlaskaDataIter():
 
         return fname,image_batch,label
 
-def plot_confusion_matrix(cm, labels_name, title):
-    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]    # 归一化
-    plt.imshow(cm, interpolation='nearest')    # 在特定的窗口上显示图像
-    plt.title(title)    # 图像标题
-    plt.colorbar()
-    num_local = np.array(range(len(labels_name)))
-    plt.xticks(num_local, labels_name, rotation=90)    # 将标签印在x轴坐标上
-    plt.yticks(num_local, labels_name)    # 将标签印在y轴坐标上
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
 class ACCMeter(object):
     def __init__(self):
         self.reset()
@@ -152,7 +142,9 @@ class ACCMeter(object):
 
         cm = confusion_matrix(self.y_true, self.y_pred, labels=[0, 1, 2,3,4])
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # 归一化
-        print(cm)  # 打印出来看看
+        cm = np.around(cm,decimals=2)
+        logger.info('confusion matrix ',cm)
+
         # plot_confusion_matrix(cm, [0,1,2,3,4], "HAR Confusion Matrix")
         # print('xxx')
         # plt.savefig('HAR_cm.png', format='png')
@@ -207,12 +199,12 @@ def main():
 
     ###build dataset
 
-    train_ind = data[data['fold'] != fold].index.to_list()
+    train_ind = data[data['fold'] != fold].index.values
     train_data = data.iloc[train_ind].copy()
-    val_ind = data[data['fold'] == fold].index.to_list()
+    val_ind = data[data['fold'] == fold].index.values
     val_data = data.iloc[val_ind].copy()
 
-    DATASET=AlaskaDataIter(val_data)
+    DATASET=AlaskaDataIter(train_data)
     ###build modeler
 
     acc_score = ACCMeter()
@@ -236,21 +228,21 @@ def main():
             output = np.mean(output, axis=0)
             pre_label = np.argmax(output)
             acc_score.update(target, pre_label)
-
-            if pre_label!=target:
-                # iimg=float_image[0,...]
-                # iimg=np.transpose(iimg,[1,2,0]).astype(np.uint8)
-                #
-                #
-                # print('fname',fname, 'predict',pre_label,  'target ' ,target)
-                # iimg = cv2.cvtColor(iimg, cv2.COLOR_BGR2RGB)
-                # cv2.imshow('xx',iimg)
-                # kk=cv2.waitKey(0)
-                #
-                # if kk==115:
-                #     shutil.copy(fname,os.path.join('./err_labeled',fname.split('/')[-1]))
-
-                shutil.copy(fname, os.path.join('./err_labeled', fname.split('/')[-1]))
+            #
+            # if pre_label!=target:
+            #     # iimg=float_image[0,...]
+            #     # iimg=np.transpose(iimg,[1,2,0]).astype(np.uint8)
+            #     #
+            #     #
+            #     # print('fname',fname, 'predict',pre_label,  'target ' ,target)
+            #     # iimg = cv2.cvtColor(iimg, cv2.COLOR_BGR2RGB)
+            #     # cv2.imshow('xx',iimg)
+            #     # kk=cv2.waitKey(0)
+            #     #
+            #     # if kk==115:
+            #     #     shutil.copy(fname,os.path.join('./err_labeled',fname.split('/')[-1]))
+            #
+            #     shutil.copy(fname, os.path.join('./err_labeled', fname.split('/')[-1]))
                 # iimg=
 
 

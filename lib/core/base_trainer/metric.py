@@ -62,9 +62,11 @@ class ACCMeter(object):
             cur_acc=np.sum(cur_y_true==cur_y_pre)/np.sum(index)
 
             logger.info(' for class %d, acc %.6f' %(i, cur_acc))
-            
 
-
+        cm = confusion_matrix(self.y_true, self.y_pred, labels=[0, 1, 2, 3, 4])
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # 归一化
+        cm = np.around(cm, decimals=2)
+        logger.info('confusion matrix ', cm)
 
         return np.sum(right)/self.y_true.shape[0]
 
