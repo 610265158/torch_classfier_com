@@ -55,12 +55,12 @@ def main():
 
 
 
-    for fold in range(2,n_fold):
+    for fold in range(n_fold):
         ###build dataset
 
-        train_ind = data[data['fold'] != fold].index.to_list()
+        train_ind = data[data['fold'] != fold].index.values
         train_data = data.iloc[train_ind].copy()
-        val_ind = data[data['fold'] == fold].index.to_list()
+        val_ind = data[data['fold'] == fold].index.values
         val_data = data.iloc[val_ind].copy()
 
 
