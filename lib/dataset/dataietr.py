@@ -338,7 +338,7 @@ class AlaskaDataIter():
 
         fname = os.path.join(cfg.DATA.data_root_path,dp[0])
 
-        print(fname)
+
         label = int(dp[1])
 
         image = cv2.imread(fname, -1)
