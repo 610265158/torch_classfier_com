@@ -19,6 +19,7 @@ import random
 from lib.core.model.loss.labelsmooth import LabelSmoothing
 from lib.core.model.loss.ohem import OHEMLoss
 from lib.core.model.loss.labelsmooth import BCEWithLogitsLoss
+from lib.core.model.loss.boost_loss import SoftBootstrappingLoss
 from lib.core.base_trainer.metric import *
 import torch
 import torch.nn.functional as F
@@ -90,7 +91,7 @@ class Train(object):
     #                                                             min_lr=1e-6,factor=0.5,verbose=True)
     self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
 
-    self.criterion = LabelSmoothing(smoothing=cfg.MODEL.label_smooth).to(self.device)
+    self.criterion = SoftBootstrappingLoss().to(self.device)
 
     self.criterion_val = LabelSmoothing(smoothing=0.0).to(self.device)
 
