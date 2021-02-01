@@ -23,7 +23,7 @@ from lib.core.model.loss.boost_loss import SoftBootstrappingLoss
 from lib.core.base_trainer.metric import *
 import torch
 import torch.nn.functional as F
-
+from lib.core.model.mix.fmix import FMix
 from torchcontrib.optim import SWA
 
 
@@ -96,6 +96,10 @@ class Train(object):
     self.criterion_val = LabelSmoothing(smoothing=0.0).to(self.device)
 
 
+
+
+    self.fmix=FMix(loss_function=self.criterion)
+
   def custom_loop(self):
     """Custom training and testing loop.
     Args:
@@ -148,11 +152,12 @@ class Train(object):
 
             output = self.model(mixued_data)
             current_loss = mixup_criterion(output, mixued_target,self.criterion)
-        elif rand_dice>cfg.MODEL.mixup and rand_dice<cfg.MODEL.mixup+cfg.MODEL.cutmix:
-            mixued_data, mixued_target = cutmix(data, target, 0.5)
+        elif rand_dice>cfg.MODEL.mixup and rand_dice<cfg.MODEL.mixup+cfg.MODEL.fmix:
+            mixued_data = self.fmix(data)
 
             output = self.model(mixued_data)
-            current_loss = cutmix_criterion(output, mixued_target, self.criterion)
+            current_loss = self.fmix.loss(output, target)
+
         else:
             output = self.model(data)
 

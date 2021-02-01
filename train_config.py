@@ -43,8 +43,8 @@ config.MODEL.channel = 3
 
 config.DATA = edict()
 
-config.DATA.data_file='merged.csv'
-config.DATA.data_root_path='../cassava-leaf-disease-classification/train'
+config.DATA.data_file='train.csv'
+config.DATA.data_root_path='../cassava-leaf-disease-classification/train_images'
 ############the model is trained with RGB mode
 config.DATA.PIXEL_MEAN = np.array([ 0.460, 0.442 ,0.390 ]).reshape(1,3,1,1)           ###rgb
 config.DATA.PIXEL_STD = np.array([0.238, 0.219, 0.232]).reshape(1,3,1,1)
@@ -54,7 +54,7 @@ config.TRAIN.warmup_step=1500
 config.TRAIN.opt='Adamw'
 config.TRAIN.SWA=0    ### -1 use no swa   from which epoch start SWA
 config.MODEL.label_smooth=0.05
-config.MODEL.cutmix=0.0
+config.MODEL.fmix=0.5
 config.MODEL.mixup=0.5
 config.MODEL.gempool=False
 
