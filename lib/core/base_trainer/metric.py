@@ -65,8 +65,22 @@ class ACCMeter(object):
 
         cm = confusion_matrix(self.y_true, self.y_pred, labels=[0, 1, 2, 3, 4])
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # 归一化
-        cm = np.around(cm, decimals=2)
-        logger.info('confusion matrix ', cm)
+
+
+
+
+        logmessage='confusion matrix \n'\
+                    ' %4f, %4f,%4f,%4f,%4f \n' \
+                    ' %4f, %4f,%4f,%4f,%4f \n' \
+                    ' %4f, %4f,%4f,%4f,%4f \n' \
+                    ' %4f, %4f,%4f,%4f,%4f \n'\
+                    ' %4f, %4f,%4f,%4f,%4f '%(cm[0][0], cm[0][1], cm[0][2], cm[0][3], cm[0][4],
+                                              cm[1][0], cm[1][1], cm[1][2], cm[1][3], cm[1][4],
+                                              cm[2][0], cm[2][1], cm[2][2], cm[2][3], cm[2][4],
+                                              cm[3][0], cm[3][1], cm[3][2], cm[3][3], cm[3][4],
+                                              cm[4][0], cm[4][1], cm[4][2], cm[4][3], cm[4][4],
+                                             )
+        logger.info(logmessage )
 
         return np.sum(right)/self.y_true.shape[0]
 
