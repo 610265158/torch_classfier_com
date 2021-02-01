@@ -143,7 +143,7 @@ class ACCMeter(object):
         cm = confusion_matrix(self.y_true, self.y_pred, labels=[0, 1, 2,3,4])
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # 归一化
         cm = np.around(cm,decimals=2)
-        logger.info('confusion matrix ',cm)
+        print(cm)
 
         # plot_confusion_matrix(cm, [0,1,2,3,4], "HAR Confusion Matrix")
         # print('xxx')
