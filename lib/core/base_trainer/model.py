@@ -44,10 +44,8 @@ class Net(nn.Module):
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 
 
-        self. dense1=nn.Sequential(nn.Linear(2048,1024),
-                                   nn.BatchNorm1d(1024),
-                                   nn.ReLU())
-        self._fc = nn.Linear(1024 , num_classes, bias=True)
+
+        self._fc = nn.Linear(2048 , num_classes, bias=True)
 
     def forward(self, inputs):
 
@@ -60,7 +58,7 @@ class Net(nn.Module):
         x = self.model.forward_features(input_iid)
         fm = self._avg_pooling(x)
         fm = fm.view(bs, -1)
-        fm=self.dense1(fm)
+        
         x = self._fc(fm)
 
 
