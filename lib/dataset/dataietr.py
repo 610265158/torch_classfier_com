@@ -160,9 +160,9 @@ class AlaskaDataIter():
                                     A.HorizontalFlip(p=0.5),
                                     A.VerticalFlip(p=0.5),
                                     A.ShiftScaleRotate(p=0.5),
-                                    A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2,
+                                    A.HueSaturationValue(hue_shift_limit=2, sat_shift_limit=20, val_shift_limit=20,
                                                        p=0.5),
-                                    A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1),
+                                    A.RandomBrightnessContrast(brightness_limit=(0.2), contrast_limit=(0.2),
                                                              p=0.5),
                                     A.OneOf([
                                         A.IAAAffine(),
