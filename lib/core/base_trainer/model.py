@@ -44,7 +44,7 @@ class Net(nn.Module):
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 
 
-
+        self.drop=nn.Dropout(0.5)
         self._fc = nn.Linear(2048 , num_classes, bias=True)
 
     def forward(self, inputs):
@@ -58,7 +58,7 @@ class Net(nn.Module):
         x = self.model.forward_features(input_iid)
         fm = self._avg_pooling(x)
         fm = fm.view(bs, -1)
-        
+        fm=self.drop(fm)
         x = self._fc(fm)
 
 
