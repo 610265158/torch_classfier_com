@@ -220,8 +220,8 @@ class FMix(FMixBase):
         mask = torch.from_numpy(mask).float().to(x.device)
 
         # Mix the images
-        print(mask.shape)
-        print(x.size)
+
+
         x1 = mask * x
         x2 = (1 - mask) * x[index]
         self.index = index
