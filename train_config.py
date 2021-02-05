@@ -17,7 +17,7 @@ config.TRAIN.num_gpu = 1
 config.TRAIN.batch_size = 32
 config.TRAIN.log_interval = 10                  ##10 iters for a log msg
 config.TRAIN.test_interval = 1
-config.TRAIN.epoch = 15
+config.TRAIN.epoch = 25
 
 config.TRAIN.init_lr=5.e-4
 
@@ -64,7 +64,7 @@ config.MODEL.num_class=5
 config.MODEL.freeze_bn=False
 config.MODEL.freeze_bn_affine=False
 
-config.MODEL.ema=False
+config.MODEL.ema=True
 config.MODEL.focal_loss=False
 config.SEED=42
 
