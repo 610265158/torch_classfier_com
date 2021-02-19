@@ -14,15 +14,15 @@ class LabelSmoothing(nn.Module):
 
     def forward(self, x, target,mean=True):
 
+        if target.size(1)==1:
+            N = x.size(0)
+            C = x.size(1)
+            class_mask = x.data.new(N, C).fill_(0)
+            class_mask = Variable(class_mask)
+            ids = target.view(-1, 1)
+            class_mask.scatter_(1, ids.data, 1.)
 
-        N = x.size(0)
-        C = x.size(1)
-        class_mask = x.data.new(N, C).fill_(0)
-        class_mask = Variable(class_mask)
-        ids = target.view(-1, 1)
-        class_mask.scatter_(1, ids.data, 1.)
-
-        target=class_mask
+            target=class_mask
         if self.training:
             x = x.float()
             target = target.float()

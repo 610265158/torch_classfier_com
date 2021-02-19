@@ -3,17 +3,17 @@ import os
 
 
 
-reconstructed_data=pd.DataFrame(columns=['image_id','label'])
+reconstructed_data=pd.DataFrame(columns=['fname','class'])
 
-
-raw_data=pd.read_csv('~/Downloads/train/_annotations.csv')
+data_dir='../train'
+raw_data=pd.read_csv(data_dir+'/_annotations.csv')
 
 imageid=raw_data['StudyInstanceUID'].values
 
-imageid=[os.path.join(x,'.jpg') for x in imageid]
+imageid=[os.path.join(data_dir,x+'.jpg') for x in imageid]
 
-reconstructed_data['image_id']=imageid
-reconstructed_data['label']=-1
+reconstructed_data['fname']=imageid
+reconstructed_data['class']=-1
 
 
 all_label=['ETT - Abnormal',
@@ -32,7 +32,7 @@ all_label=['ETT - Abnormal',
 for k,label in enumerate(all_label):
 
     cur_index=(raw_data['label'].values==label)
-    reconstructed_data['label'][cur_index]=k
+    reconstructed_data['class'][cur_index]=k
 
 
 reconstructed_data.to_csv('./train.csv',index=False)

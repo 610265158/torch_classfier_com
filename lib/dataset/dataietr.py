@@ -364,5 +364,5 @@ class AlaskaDataIter():
 
         image=image.astype(np.uint8)
 
-
+        label=self.onehot(label,11)
         return image,label

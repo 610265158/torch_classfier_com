@@ -29,7 +29,7 @@ def main():
 
         data['fold'] = -1
         Fold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
-        for fold, (train_index, test_index) in enumerate(Fold.split(data, data['class'])):
+        for fold, (train_index, test_index) in enumerate(Fold.split(data, data['label'])):
             data['fold'][test_index] = fold
 
         return data
