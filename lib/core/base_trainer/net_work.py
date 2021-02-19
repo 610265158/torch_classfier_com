@@ -184,16 +184,21 @@ class Train(object):
 
         if self.iter_num%cfg.TRAIN.log_interval==0:
 
+
+
+            acc_avg,auc_avg=acc_score.avg
             log_message = '[fold %d], '\
                           'Train Step %d, ' \
                           'summary_loss: %.6f, ' \
                           'accuracy: %.6f, ' \
+                          'roc_auc: %.6f, ' \
                           'time: %.6f, '\
                           'speed %d images/persec'% (
                               self.fold,
                               self.iter_num,
                               summary_loss.avg,
-                              acc_score.avg,
+                              acc_avg,
+                              auc_avg,
                               time.time() - start,
                               images_per_sec)
             logger.info(log_message)
@@ -225,13 +230,18 @@ class Train(object):
                 acc_score.update(target, output)
 
                 if step % cfg.TRAIN.log_interval == 0:
-
+                    acc_avg, auc_avg = acc_score.avg
                     log_message = '[fold %d], '\
                                   'Val Step %d, ' \
                                   'summary_loss: %.6f, ' \
-                                  'acc: %.6f, ' \
+                                  'accuracy: %.6f, ' \
+                                  'roc_auc: %.6f, ' \
                                   'time: %.6f' % (
-                                  self.fold,step, summary_loss.avg, acc_score.avg, time.time() - t)
+                                  self.fold,step,
+                                  summary_loss.avg,
+                                  acc_avg,
+                                  auc_avg,
+                                  time.time() - t)
 
                     logger.info(log_message)
 
@@ -246,13 +256,19 @@ class Train(object):
       t=time.time()
 
       summary_loss,acc_score = distributed_train_epoch(epoch)
-
+      acc_avg, auc_avg = acc_score.avg
       train_epoch_log_message = '[fold %d], '\
                                 '[RESULT]: Train. Epoch: %d,' \
                                 ' summary_loss: %.5f,' \
-                                ' acuracy: %.5f,' \
+                                'accuracy: %.5f, ' \
+                                'roc_auc: %.5f, ' \
                                 ' time:%.5f' % (
-                                self.fold,epoch, summary_loss.avg,acc_score.avg, (time.time() - t))
+                                self.fold,
+                                epoch,
+                                summary_loss.avg,
+                                acc_avg,
+                                auc_avg,
+                                (time.time() - t))
       logger.info(train_epoch_log_message)
 
       if cfg.TRAIN.SWA > 0 and epoch >=cfg.TRAIN.SWA:
@@ -267,13 +283,19 @@ class Train(object):
       if epoch%cfg.TRAIN.test_interval==0:
 
           summary_loss,acc_score = distributed_test_epoch(epoch)
-
+          acc_avg, auc_avg = acc_score.avg
           val_epoch_log_message = '[fold %d], '\
                                   '[RESULT]: VAL. Epoch: %d,' \
                                   ' summary_loss: %.5f,' \
-                                  ' accuracy: %.5f,' \
+                                  'accuracy: %.5f, ' \
+                                  'roc_auc: %.5f, ' \
                                   ' time:%.5f' % (
-                                   self.fold,epoch, summary_loss.avg,acc_score.avg, (time.time() - t))
+                                   self.fold,
+                                   epoch,
+                                   summary_loss.avg,
+                                   acc_avg,
+                                   auc_avg,
+                                   (time.time() - t))
           logger.info(val_epoch_log_message)
 
       self.scheduler.step()
