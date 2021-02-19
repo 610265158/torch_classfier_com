@@ -11,22 +11,6 @@ from train_config import config as cfg
 
 
 import timm
-def gem(x, p=3, eps=1e-5):
-    return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
-
-class GeM(nn.Module):
-
-    def __init__(self, p=3, eps=1e-5):
-        super(GeM, self).__init__()
-        self.p = Parameter(torch.ones(1) * p)
-        self.eps = eps
-
-    def forward(self, x):
-        return gem(x, p=self.p, eps=self.eps)
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + ', ' + 'eps=' + str(
-            self.eps) + ')'
 
 
 class Net(nn.Module):
@@ -36,33 +20,35 @@ class Net(nn.Module):
         # self.mean_tensor=torch.from_numpy(cfg.DATA.PIXEL_MEAN ).float().cuda()
         # self.std_val_tensor = torch.from_numpy(cfg.DATA.PIXEL_STD).float().cuda()
         # self.model = EfficientNet.from_pretrained(model_name='efficientnet-b0')
-        # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
+        self.model = timm.create_model('mobilenetv2_100', pretrained=True)
+        # self.model = timm.create_model('hrnet_w32', pretrained=True)
 
-        # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
-        self.model = timm.create_model('tf_efficientnet_b3_ns', pretrained=True)
-        self.model.conv_stem=nn.Conv2d(in_channels=3,out_channels=40,
-                                       kernel_size=3,stride=1,padding=1)
+
+
+
+        ##conv head as 512
+        self.model.conv_head = nn.Conv2d(320, 512, kernel_size=1, padding=0,stride=1)
+        self.model.bn2 = nn.BatchNorm2d(512, eps=1e-5,momentum=0.01)
+
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 
+        self.dropout=nn.Dropout(0.5)
 
-        self.drop=nn.Dropout(0.5)
-        self._fc = nn.Linear(1536 , num_classes, bias=True)
+        self._fc = nn.Linear(512 , num_classes, bias=True)
 
     def forward(self, inputs):
 
         #do preprocess
 
-        input_iid = inputs
-        input_iid=input_iid/255.
-        bs = input_iid.size(0)
+        inputs=inputs/255.
+        bs = inputs.size(0)
         # Convolution layers
-        x = self.model.forward_features(input_iid)
-        print(x.size())
+        x = self.model.forward_features(inputs)
         fm = self._avg_pooling(x)
         fm = fm.view(bs, -1)
-        fm=self.drop(fm)
-        x = self._fc(fm)
+        feature = self.dropout(fm)
 
+        x = self._fc(feature)
 
         return x
 

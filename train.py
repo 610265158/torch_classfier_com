@@ -1,7 +1,7 @@
 
 from lib.core.base_trainer.net_work import Train
-from lib.dataset.dataietr import DataIter
-
+from lib.dataset.dataietr import AlaskaDataIter
+from torch.utils.data import Dataset, DataLoader
 import cv2
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ from train_config import config as cfg
 import setproctitle
 
 
-setproctitle.setproctitle("comp")
+setproctitle.setproctitle("torch_classifier")
 
 
 def main():
@@ -21,36 +21,21 @@ def main():
 
 
     ### 5 fold
-
+    n_fold=5
     def split(n_fold=5):
+        n_fold=5
 
         data=pd.read_csv(cfg.DATA.data_file)
 
-        # ##use fix label
-        # fixed_label_index=~pd.isna(data['fixed'])
-        # data['label'][fixed_label_index]=data['fixed'][fixed_label_index]
-
         data['fold'] = -1
         Fold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
-
-        if "merge" in cfg.DATA.data_file:
-            data_2020=data[data['source']==2020]
-            data_2019=data[data['source']==2019]
-            for fold, (train_index, test_index) in enumerate(Fold.split(data_2020, data_2020['label'])):
-                data_2020['fold'][test_index] = fold
-
-
-            data=data_2020.append(data_2019)
-        else:
-
-            for fold, (train_index, test_index) in enumerate(Fold.split(data, data['label'])):
-                data['fold'][test_index] = fold
-
-
+        for fold, (train_index, test_index) in enumerate(Fold.split(data, data['class'])):
+            data['fold'][test_index] = fold
 
         return data
 
-    n_fold = 5
+
+
     data=split(n_fold)
 
 
@@ -64,8 +49,17 @@ def main():
         val_data = data.iloc[val_ind].copy()
 
 
-        train_ds = DataIter(train_data, True,True)
-        test_ds = DataIter(val_data, False,False)
+        trainds=AlaskaDataIter(train_data)
+        train_ds = DataLoader(trainds,
+                              cfg.TRAIN.batch_size,
+                              num_workers=cfg.TRAIN.process_num,
+                              shuffle=True)
+
+        valds = AlaskaDataIter(val_data)
+        test_ds = DataLoader(valds,
+                             cfg.TRAIN.batch_size*2,
+                             num_workers=cfg.TRAIN.process_num,
+                             shuffle=False)
 
         ###build trainer
         trainer = Train(train_ds=train_ds,val_ds=test_ds,fold=fold)

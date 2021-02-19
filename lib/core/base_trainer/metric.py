@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 
-from lib.helper.logger import logger
+from lib.utils.logger import logger
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -50,37 +50,5 @@ class ACCMeter(object):
     @property
     def avg(self):
         right=(self.y_pred==self.y_true).astype(np.float)
-
-        ###
-
-        for i in range(5):
-            index=(self.y_true==i)
-
-            cur_y_true=self.y_true[index]
-            cur_y_pre=self.y_pred[index]
-
-            cur_acc=np.sum(cur_y_true==cur_y_pre)/np.sum(index)
-
-            logger.info(' for class %d, acc %.6f' %(i, cur_acc))
-
-        cm = confusion_matrix(self.y_true, self.y_pred, labels=[0, 1, 2, 3, 4])
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # 归一化
-
-
-
-
-        logmessage='confusion matrix \n'\
-                    ' %4f, %4f,%4f,%4f,%4f \n' \
-                    ' %4f, %4f,%4f,%4f,%4f \n' \
-                    ' %4f, %4f,%4f,%4f,%4f \n' \
-                    ' %4f, %4f,%4f,%4f,%4f \n'\
-                    ' %4f, %4f,%4f,%4f,%4f '%(cm[0][0], cm[0][1], cm[0][2], cm[0][3], cm[0][4],
-                                              cm[1][0], cm[1][1], cm[1][2], cm[1][3], cm[1][4],
-                                              cm[2][0], cm[2][1], cm[2][2], cm[2][3], cm[2][4],
-                                              cm[3][0], cm[3][1], cm[3][2], cm[3][3], cm[3][4],
-                                              cm[4][0], cm[4][1], cm[4][2], cm[4][3], cm[4][4],
-                                             )
-        logger.info(logmessage )
-
         return np.sum(right)/self.y_true.shape[0]
 

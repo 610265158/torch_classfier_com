@@ -11,7 +11,7 @@ from train_config import config as cfg
 #from lib.dataset.dataietr import DataIter
 
 import sklearn.metrics
-from lib.helper.logger import logger
+from lib.utils.logger import logger
 from lib.core.model.loss.focal_loss import FocalLoss,FocalLoss4d
 from lib.core.base_trainer.model import Net
 
@@ -19,7 +19,7 @@ import random
 from lib.core.model.loss.labelsmooth import LabelSmoothing
 from lib.core.model.loss.ohem import OHEMLoss
 from lib.core.model.loss.labelsmooth import BCEWithLogitsLoss
-from lib.core.model.loss.boost_loss import SoftBootstrappingLoss
+
 from lib.core.base_trainer.metric import *
 import torch
 import torch.nn.functional as F
@@ -91,14 +91,14 @@ class Train(object):
     #                                                             min_lr=1e-6,factor=0.5,verbose=True)
     self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
 
-    self.criterion = SoftBootstrappingLoss().to(self.device)
+    self.criterion = LabelSmoothing(smoothing=cfg.MODEL.label_smooth).to(self.device)
 
     self.criterion_val = LabelSmoothing(smoothing=0.0).to(self.device)
 
 
 
 
-    self.fmix=FMix(loss_function=self.criterion)
+    self.fmix=FMix(loss_function=self.criterion,size=(cfg.MODEL.height,cfg.MODEL.width))
 
   def custom_loop(self):
     """Custom training and testing loop.
@@ -123,7 +123,10 @@ class Train(object):
                   if cfg.MODEL.freeze_bn_affine:
                       m.weight.requires_grad = False
                       m.bias.requires_grad = False
-      for step in range(self.train_ds.size):
+
+
+
+      for images, target in self.train_ds:
 
         if epoch_num<10:
             ###excute warm up in the first epoch
@@ -137,14 +140,11 @@ class Train(object):
 
         start=time.time()
 
-        images, target = self.train_ds()
 
-        data = torch.from_numpy(images).to(self.device).float()
-        target = torch.from_numpy(target).to(self.device).long()
+        data = images.to(self.device).float()
+        target = target.to(self.device).long()
 
         batch_size = data.shape[0]
-
-
 
         rand_dice=random.uniform(0,1)
         if rand_dice<cfg.MODEL.mixup:
@@ -211,10 +211,10 @@ class Train(object):
         self.model.eval()
         t = time.time()
         with torch.no_grad():
-            for step in range(self.val_ds.size):
-                images, target = self.val_ds()
-                data = torch.from_numpy(images).to(self.device).float()
-                target = torch.from_numpy(target).to(self.device).long()
+            for step,(images, target) in enumerate(self.val_ds):
+
+                data = images.to(self.device).float()
+                target = target.to(self.device).long()
                 batch_size = data.shape[0]
 
 

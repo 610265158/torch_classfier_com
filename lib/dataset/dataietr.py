@@ -6,7 +6,7 @@ import json
 import numpy as np
 import copy
 
-from lib.helper.logger import logger
+from lib.utils.logger import logger
 from tensorpack.dataflow import DataFromGenerator, BatchData, MultiProcessPrefetchData, PrefetchDataZMQ, RepeatedData
 import time
 
@@ -45,8 +45,8 @@ class data_info(object):
 
             cur_line= self.df.iloc[i]
 
-            fname = cur_line['image_id']
-            label = cur_line['label']
+            fname = cur_line['fname']
+            label = cur_line['class']
 
 
 
@@ -154,7 +154,8 @@ class AlaskaDataIter():
         #
         # logger.info('after balance contains%d samples'%len(self.lst))
         self.train_trans=A.Compose([A.RandomResizedCrop(height=cfg.MODEL.height,
-                                                        width=cfg.MODEL.width
+                                                        width=cfg.MODEL.width,
+                                                        scale=[0.7,1.3]
                                                         ),
                                     A.Transpose(p=0.5),
                                     A.HorizontalFlip(p=0.5),
@@ -182,8 +183,7 @@ class AlaskaDataIter():
                               ])
 
 
-        self.val_trans=A.Compose([ A.CenterCrop(height=cfg.MODEL.height,
-                                                width=cfg.MODEL.width, p=1.),
+        self.val_trans=A.Compose([
 
                                    A.Resize(height=cfg.MODEL.height,
                                            width=cfg.MODEL.width)
@@ -199,9 +199,9 @@ class AlaskaDataIter():
         for k in idxs:
             yield self.single_map_func(self.lst[k], self.training_flag)
 
+    def __getitem__(self, item):
 
-
-
+        return self.single_map_func(self.lst[item], self.training_flag)
 
     def __len__(self):
         assert self.raw_data_set_size is not None
@@ -221,10 +221,9 @@ class AlaskaDataIter():
 
         return all_samples
 
-    def balance_data(self,samples):
+    def balance_data(self, samples):
 
-
-        data_distribution={}
+        data_distribution = {}
         for dp in samples:
             fname = dp[0]
 
@@ -232,7 +231,7 @@ class AlaskaDataIter():
             if label in data_distribution:
                 data_distribution[label].append(dp)
             else:
-                data_distribution[label]=[dp]
+                data_distribution[label] = [dp]
             # if self.training_flag:
             #     if label==4 or label==1 or label==2:
             #         for jj in range(4):
@@ -242,11 +241,10 @@ class AlaskaDataIter():
             #         for jj in range(10):
             #             data_distribution[label].append(dp)
 
-        for k,v in data_distribution.items():
-            logger.info('for class %d contains: %d samples'%(k,len(v)))
+        for k, v in data_distribution.items():
+            logger.info('for class %d contains: %d samples' % (k, len(v)))
 
         return data_distribution
-
 
     def cracy_rotate(self, image, block_nums=2):
 
@@ -340,26 +338,28 @@ class AlaskaDataIter():
 
 
         label = int(dp[1])
+        try:
+            image = cv2.imread(fname, -1)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        image = cv2.imread(fname, -1)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if is_training:
 
-        if is_training:
+                image=self.train_trans(image=image)['image']
 
-            image=self.train_trans(image=image)['image']
+                # ###cutout
+                if random.uniform(0, 1) >= 0.5:
+                    image=self.random_dash(image,8,64)
 
-            # ###cutout
-            if random.uniform(0, 1) >= 0.5:
-                image=self.random_dash(image,8,64)
+                # if random.uniform(0, 1) >= 0.5:
+                #     image= self.cracy_rotate(image,4)
 
-            # if random.uniform(0, 1) >= 0.5:
-            #     image= self.cracy_rotate(image,4)
+            else:
 
-        else:
-
-            image=self.val_trans(image=image)['image']
-
-
+                image=self.val_trans(image=image)['image']
+        except:
+            logger.info('err happends with%s'% fname)
+            image=np.zeros(shape=[cfg.MODEL.height,cfg.MODEL.width,cfg.MODEL.channel])
+            label=0
         image = np.transpose(image, axes=[2, 0, 1])
 
         image=image.astype(np.uint8)

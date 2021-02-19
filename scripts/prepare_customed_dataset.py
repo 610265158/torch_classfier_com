@@ -5,9 +5,7 @@ import os
 import random
 import cv2
 import pandas as pd
-
-ratio=0.8
-data_set_dir='./IMAGENET'
+from tqdm import tqdm
 
 checker_image_state=False
 
@@ -18,12 +16,12 @@ def prepare_data():
     labels=os.listdir(data_set_dir)
 
     ##filter
-    labels=["人像","古建筑","夜色","家居","日出日落",\
-                   "植物","海天淡蓝色","美食","街景","animal",\
-                   "airplane","bicycle","boat","bus","car",\
-                   "motorcycle","train","truck"
-                   "background"]
-
+    # labels=["人像","古建筑","夜色","家居","日出日落",\
+    #                "植物","海天淡蓝色","美食","街景","animal",\
+    #                "airplane","bicycle","boat","bus","car",\
+    #                "motorcycle","train","truck"
+    #                "background"]
+    # labels = ["大海"]
 
     syntext_f=open('label.txt','w')
     for label in labels:
@@ -33,8 +31,10 @@ def prepare_data():
             message = label + ' ' +str(labels.index(label)) +'\n'
         syntext_f.write(message)
 
+    syntext_f.close()
+    print('syntext_f write done!')
 
-    for label in labels:
+    for label in tqdm(labels):
         cur_dir=os.path.join(data_set_dir,label)
 
         pic_list=os.listdir(cur_dir)
@@ -54,9 +54,9 @@ def prepare_data():
                     img='ok'
                 if img is not  None:
                     if label == 'background':
-                        tmp_item=pd.Series({'fname': cur_path, 'class': -1})
+                        tmp_item=pd.Series({'fname': cur_path, 'class': 0})
                     else:
-                        tmp_item = pd.Series({'fname': cur_path, 'class': labels.index(label)})
+                        tmp_item = pd.Series({'fname': cur_path, 'class': labels.index(label)+1})
                     train_df=train_df.append(tmp_item,ignore_index=True)
 
             except:
@@ -65,8 +65,6 @@ def prepare_data():
 
     train_df.to_csv('train.csv',index=False)
 
-
-    syntext_f.close()
 
 
 if __name__=='__main__':
