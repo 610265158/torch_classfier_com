@@ -39,13 +39,14 @@ class Net(nn.Module):
         # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
 
         # self.model = timm.create_model('mobilenetv2_110d', pretrained=True)
-        self.model = timm.create_model('tf_efficientnet_b5_ns', pretrained=True)
-
+        self.model = timm.create_model('tf_efficientnet_b3_ns', pretrained=True)
+        self.model.conv_stem=nn.Conv2d(in_channels=3,out_channels=40,
+                                       kernel_size=3,stride=1,padding=1)
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 
 
         self.drop=nn.Dropout(0.5)
-        self._fc = nn.Linear(2048 , num_classes, bias=True)
+        self._fc = nn.Linear(1536 , num_classes, bias=True)
 
     def forward(self, inputs):
 
@@ -56,6 +57,7 @@ class Net(nn.Module):
         bs = input_iid.size(0)
         # Convolution layers
         x = self.model.forward_features(input_iid)
+        print(x.size())
         fm = self._avg_pooling(x)
         fm = fm.view(bs, -1)
         fm=self.drop(fm)
