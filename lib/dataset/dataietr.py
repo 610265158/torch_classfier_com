@@ -10,7 +10,7 @@ from lib.utils.logger import logger
 from tensorpack.dataflow import DataFromGenerator, BatchData, MultiProcessPrefetchData, PrefetchDataZMQ, RepeatedData
 import time
 
-
+import traceback
 from lib.dataset.augmentor.augmentation import Rotate_aug,\
                                                 Affine_aug,\
                                                 Mirror,\
@@ -32,24 +32,28 @@ class data_info(object):
         self.training=training
 
         self.load_anns()
-    def one_hot(self,p,length):
-        label=np.zeros(shape=length)
-        label[p]=1
-        return label
+
 
     def load_anns(self):
 
         num_sample=len(self.df)
 
+
+        target_cols=['ETT - Abnormal','ETT - Borderline','ETT - Normal',
+                     'NGT - Abnormal','NGT - Borderline','NGT - Incompletely Imaged','NGT - Normal',
+                     'CVC - Abnormal','CVC - Borderline','CVC - Normal','Swan Ganz Catheter Present']
         for i in range(num_sample):
 
             cur_line= self.df.iloc[i]
 
-            fname = cur_line['fname']
-            label = cur_line['class']
+
+
+            fname = str(cur_line['StudyInstanceUID']).rstrip()
 
 
 
+
+            label = cur_line[target_cols].values
 
 
             self.metas.append([fname, label])
@@ -64,75 +68,12 @@ class data_info(object):
         return self.metas
 #
 #
-class DataIter():
-    def __init__(self,data,training_flag=True,shuffle=True):
-
-        self.shuffle=shuffle
-        self.training_flag=training_flag
-        self.num_gpu = cfg.TRAIN.num_gpu
-        self.batch_size = cfg.TRAIN.batch_size
-        self.process_num = cfg.TRAIN.process_num
-        self.prefetch_size = cfg.TRAIN.prefetch_size
-
-
-        if not training_flag:
-            self.process_num=1
-        self.generator = AlaskaDataIter(data, self.training_flag,self.shuffle)
-
-        self.ds=self.build_iter()
-
-        self.size = self.__len__()
-
-
-    def parse_file(self,im_root_path,ann_file):
-
-        raise NotImplementedError("you need implemented the parse func for your data")
-
-
-    def build_iter(self):
-
-        ds = DataFromGenerator(self.generator)
-        ds = RepeatedData(ds, -1)
-        ds = BatchData(ds, self.batch_size)
-        if not cfg.TRAIN.vis:
-            ds = PrefetchDataZMQ(ds, self.process_num)
-        ds.reset_state()
-        ds = ds.get_data()
-        return ds
-
-    def __iter__(self):
-
-        for i in range(self.size):
-            one_batch = next(self.ds)
-
-            return one_batch[0], one_batch[1], one_batch[2]
-
-    def __call__(self, *args, **kwargs):
-
-
-        for i in range(self.size):
-
-
-            one_batch=next(self.ds)
-
-            data,label=one_batch[0],one_batch[1]
-
-            return data,label
-
-
-
-    def __len__(self):
-        return len(self.generator)//self.batch_size
-
-    def _map_func(self,dp,is_training):
-
-        raise NotImplementedError("you need implemented the map func for your data")
-
 
 
 
 class AlaskaDataIter():
-    def __init__(self, data, training_flag=True,shuffle=True):
+    def __init__(self, data,
+                 training_flag=True,shuffle=True):
 
 
 
@@ -144,7 +85,7 @@ class AlaskaDataIter():
 
         self.lst = self.parse_file(data)
 
-        self.data_distribution=self.balance_data(self.lst)
+        #self.data_distribution=self.balance_data(self.lst)
 
         #
         #
@@ -155,13 +96,11 @@ class AlaskaDataIter():
         # logger.info('after balance contains%d samples'%len(self.lst))
         self.train_trans=A.Compose([A.RandomResizedCrop(height=cfg.MODEL.height,
                                                         width=cfg.MODEL.width,
-                                                        scale=[0.7,1.3]
+                                                        scale=[0.9,1.1]
                                                         ),
-                                    A.Transpose(p=0.5),
                                     A.HorizontalFlip(p=0.5),
-                                    A.VerticalFlip(p=0.5),
-                                    A.ShiftScaleRotate(p=0.5),
-                                    A.HueSaturationValue(hue_shift_limit=2, sat_shift_limit=20, val_shift_limit=20,
+                                    A.ShiftScaleRotate(p=0.5,shift_limit=0.1,scale_limit=0.1,rotate_limit=20),
+                                    A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=20,
                                                        p=0.5),
                                     A.RandomBrightnessContrast(brightness_limit=(0.2), contrast_limit=(0.2),
                                                              p=0.5),
@@ -184,20 +123,19 @@ class AlaskaDataIter():
 
 
         self.val_trans=A.Compose([
-
                                    A.Resize(height=cfg.MODEL.height,
                                            width=cfg.MODEL.width)
 
                                   ])
-    def __call__(self, *args, **kwargs):
-
-        idxs = np.arange(len(self.lst))
-
-        # while True:
-        if self.shuffle:
-            np.random.shuffle(idxs)
-        for k in idxs:
-            yield self.single_map_func(self.lst[k], self.training_flag)
+    # def __call__(self, *args, **kwargs):
+    #
+    #     idxs = np.arange(len(self.lst))
+    #
+    #     # while True:
+    #     if self.shuffle:
+    #         np.random.shuffle(idxs)
+    #     for k in idxs:
+    #         yield self.single_map_func(self.lst[k], self.training_flag)
 
     def __getitem__(self, item):
 
@@ -220,31 +158,6 @@ class AlaskaDataIter():
         self.raw_data_set_size=len(all_samples)
 
         return all_samples
-
-    def balance_data(self, samples):
-
-        data_distribution = {}
-        for dp in samples:
-            fname = dp[0]
-
-            label = int(dp[1])
-            if label in data_distribution:
-                data_distribution[label].append(dp)
-            else:
-                data_distribution[label] = [dp]
-            # if self.training_flag:
-            #     if label==4 or label==1 or label==2:
-            #         for jj in range(4):
-            #             data_distribution[label].append(dp)
-            #
-            #     elif label==0:
-            #         for jj in range(10):
-            #             data_distribution[label].append(dp)
-
-        for k, v in data_distribution.items():
-            logger.info('for class %d contains: %d samples' % (k, len(v)))
-
-        return data_distribution
 
     def cracy_rotate(self, image, block_nums=2):
 
@@ -322,47 +235,47 @@ class AlaskaDataIter():
 
 
 
-    def onehot(self,lable,depth=1000):
-        one_hot_label=np.zeros(shape=depth)
-
-        if lable!=-1:
-            one_hot_label[lable]=1
-
-        return one_hot_label
 
     def single_map_func(self, dp, is_training):
         """Data augmentation function."""
         ####customed here
 
-        fname = os.path.join(cfg.DATA.data_root_path,dp[0])
+        fname = os.path.join(cfg.DATA.data_root_path,dp[0]+'.jpg')
 
 
-        label = int(dp[1])
+
+        label = np.array(dp[1])
+
         try:
-            image = cv2.imread(fname, -1)
+            image = cv2.imread(fname)
+
+
+
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+
 
             if is_training:
 
                 image=self.train_trans(image=image)['image']
 
                 # ###cutout
-                if random.uniform(0, 1) >= 0.5:
-                    image=self.random_dash(image,8,64)
-
                 # if random.uniform(0, 1) >= 0.5:
-                #     image= self.cracy_rotate(image,4)
+                #     image=self.random_dash(image,8,64)
+
+
 
             else:
 
                 image=self.val_trans(image=image)['image']
         except:
-            logger.info('err happends with%s'% fname)
+            print(traceback.print_exc())
+            logger.info('err happends with %s'% fname)
             image=np.zeros(shape=[cfg.MODEL.height,cfg.MODEL.width,cfg.MODEL.channel])
-            label=0
+            label=np.zeros_like(label)
         image = np.transpose(image, axes=[2, 0, 1])
 
         image=image.astype(np.uint8)
 
-        label=self.onehot(label,11)
+        label = np.array(dp[1],dtype=np.int)
         return image,label

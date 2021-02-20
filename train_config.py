@@ -14,7 +14,7 @@ config.TRAIN.prefetch_size = 15
 ############
 
 config.TRAIN.num_gpu = 1
-config.TRAIN.batch_size = 32
+config.TRAIN.batch_size = 16
 config.TRAIN.log_interval = 10                  ##10 iters for a log msg
 config.TRAIN.test_interval = 1
 config.TRAIN.epoch = 35
@@ -35,16 +35,16 @@ config.TRAIN.opt='Adamw'
 
 config.MODEL = edict()
 config.MODEL.model_path = './models/'                                        ## save directory
-config.MODEL.height =  224                                        # input size during training , 128,160,   depends on
-config.MODEL.width  =  224
+config.MODEL.height =  512                                        # input size during training , 128,160,   depends on
+config.MODEL.width  =  512
 
 config.MODEL.channel = 3
 
 
 config.DATA = edict()
 
-config.DATA.data_file='train.csv'
-config.DATA.data_root_path='./'
+config.DATA.data_file='train_folds.csv'
+config.DATA.data_root_path='../train'
 ############the model is trained with RGB mode
 config.DATA.PIXEL_MEAN = np.array([ 0.460, 0.442 ,0.390 ]).reshape(1,3,1,1)           ###rgb
 config.DATA.PIXEL_STD = np.array([0.238, 0.219, 0.232]).reshape(1,3,1,1)
@@ -54,8 +54,8 @@ config.TRAIN.warmup_step=1500
 config.TRAIN.opt='Adamw'
 config.TRAIN.SWA=0    ### -1 use no swa   from which epoch start SWA
 config.MODEL.label_smooth=0.05
-config.MODEL.fmix=0.5
-config.MODEL.mixup=0.5
+config.MODEL.fmix=0.0
+config.MODEL.mixup=0.0
 config.MODEL.gempool=False
 
 config.MODEL.pretrained_model=None

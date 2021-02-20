@@ -16,29 +16,9 @@ setproctitle.setproctitle("torch_classifier")
 
 
 def main():
-
-
-
-
-    ### 5 fold
     n_fold=5
-    def split(n_fold=5):
-        n_fold=5
 
-        data=pd.read_csv(cfg.DATA.data_file)
-
-        data['fold'] = -1
-        Fold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
-        for fold, (train_index, test_index) in enumerate(Fold.split(data, data['class'])):
-            data['fold'][test_index] = fold
-
-        return data
-
-
-
-    data=split(n_fold)
-
-
+    data=pd.read_csv(cfg.DATA.data_file)
 
     for fold in range(n_fold):
         ###build dataset
@@ -57,7 +37,7 @@ def main():
 
         valds = AlaskaDataIter(val_data)
         test_ds = DataLoader(valds,
-                             cfg.TRAIN.batch_size*2,
+                             cfg.TRAIN.batch_size,
                              num_workers=cfg.TRAIN.process_num,
                              shuffle=False)
 
@@ -67,14 +47,11 @@ def main():
         print('it is here')
         if cfg.TRAIN.vis:
             print('show it, here')
-            for step in range(train_ds.size):
+            for images, labels in train_ds:
 
-                images, labels=train_ds()
+
                 # images, mask, labels = cutmix_numpy(images, mask, labels, 0.5)
-
-
                 print(images.shape)
-
                 for i in range(images.shape[0]):
                     example_image=np.array(images[i],dtype=np.uint8)
                     example_image=np.transpose(example_image,[1,2,0])
