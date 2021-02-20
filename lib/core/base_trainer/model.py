@@ -20,7 +20,7 @@ class Net(nn.Module):
         # self.mean_tensor=torch.from_numpy(cfg.DATA.PIXEL_MEAN ).float().cuda()
         # self.std_val_tensor = torch.from_numpy(cfg.DATA.PIXEL_STD).float().cuda()
         # self.model = EfficientNet.from_pretrained(model_name='efficientnet-b0')
-        self.model = timm.create_model('tf_efficientnet_b5_ns', pretrained=False)
+        self.model = timm.create_model('tf_efficientnet_b5_ns', pretrained=True)
         # self.model = timm.create_model('hrnet_w32', pretrained=True)
 
 
