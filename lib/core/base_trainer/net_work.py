@@ -91,9 +91,9 @@ class Train(object):
     #                                                             min_lr=1e-6,factor=0.5,verbose=True)
     self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
 
-    self.criterion = LabelSmoothing(smoothing=cfg.MODEL.label_smooth).to(self.device)
+    self.criterion = BCEWithLogitsLoss(smooth_eps=cfg.MODEL.label_smooth).to(self.device)
 
-    self.criterion_val = LabelSmoothing(smoothing=0.0).to(self.device)
+    self.criterion_val = BCEWithLogitsLoss(smooth_eps=0.0).to(self.device)
 
 
 
