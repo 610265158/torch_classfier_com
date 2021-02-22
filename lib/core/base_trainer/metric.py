@@ -44,7 +44,7 @@ class ACCMeter(object):
     def update(self, y_true, y_pred):
         y_true = y_true.cpu().numpy()
 
-        y_pred = torch.nn.functional.softmax(y_pred).data.cpu().numpy()
+        y_pred = torch.nn.functional.sigmoid(y_pred).data.cpu().numpy()
 
         self.y_true_11 = np.concatenate((self.y_true_11, y_true),axis=0)
         self.y_pred_11 = np.concatenate((self.y_pred_11, y_pred),axis=0)
