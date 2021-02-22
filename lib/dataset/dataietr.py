@@ -96,16 +96,22 @@ class AlaskaDataIter():
         # logger.info('after balance contains%d samples'%len(self.lst))
         self.train_trans=A.Compose([A.RandomResizedCrop(height=cfg.MODEL.height,
                                                         width=cfg.MODEL.width,
-                                                        scale=[0.9,1.1]
+                                                        scale=[0.9,1.]
                                                         ),
                                     A.HorizontalFlip(p=0.5),
-                                    A.ShiftScaleRotate(p=0.5,shift_limit=0.1,scale_limit=0.1,rotate_limit=20),
-                                    A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=20,
-                                                       p=0.5),
+                                    A.ShiftScaleRotate(p=0.7,
+                                                       shift_limit=0.1,
+                                                       scale_limit=0.1,
+                                                       rotate_limit=20,
+                                                       border_mode=cv2.BORDER_CONSTANT),
+                                    A.HueSaturationValue(hue_shift_limit=10,
+                                                         sat_shift_limit=20,
+                                                         val_shift_limit=20,
+                                                         p=0.7),
                                     A.RandomBrightnessContrast(brightness_limit=(0.2), contrast_limit=(0.2),
-                                                             p=0.5),
+                                                             p=0.7),
                                     A.OneOf([
-                                        A.IAAAffine(),
+                                        A.IAAAffine(mode='constant'),
                                         A.IAAPerspective()
 
                                     ], p=0.5),
