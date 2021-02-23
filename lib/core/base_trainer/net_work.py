@@ -89,13 +89,11 @@ class Train(object):
 
     # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,mode='max', patience=5,
     #                                                             min_lr=1e-6,factor=0.5,verbose=True)
-    self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-6)
+    self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-7)
 
     self.criterion = BCEWithLogitsLoss(smooth_eps=cfg.MODEL.label_smooth).to(self.device)
 
     self.criterion_val = BCEWithLogitsLoss(smooth_eps=0.0).to(self.device)
-
-
 
 
     self.fmix=FMix(loss_function=self.criterion,size=(cfg.MODEL.height,cfg.MODEL.width))
@@ -113,7 +111,7 @@ class Train(object):
     def distributed_train_epoch(epoch_num):
 
       summary_loss = AverageMeter()
-      acc_score= ACCMeter()
+      rocauc_score= ROCAUCMeter()
       self.model.train()
 
       if cfg.MODEL.freeze_bn:
@@ -164,7 +162,7 @@ class Train(object):
             current_loss = self.criterion(output, target)
 
         summary_loss.update(current_loss.detach().item(), batch_size)
-        acc_score.update(target,output)
+        rocauc_score.update(target,output)
         self.optimizer.zero_grad()
 
         if cfg.TRAIN.mix_precision:
@@ -186,32 +184,27 @@ class Train(object):
 
 
 
-            acc_avg,auc_avg=acc_score.avg
+
             log_message = '[fold %d], '\
                           'Train Step %d, ' \
                           'summary_loss: %.6f, ' \
-                          'accuracy: %.6f, ' \
-                          'roc_auc: %.6f, ' \
                           'time: %.6f, '\
                           'speed %d images/persec'% (
                               self.fold,
                               self.iter_num,
                               summary_loss.avg,
-                              acc_avg,
-                              auc_avg,
                               time.time() - start,
                               images_per_sec)
             logger.info(log_message)
 
 
-
       if cfg.TRAIN.SWA>0 and epoch_num>=cfg.TRAIN.SWA:
         self.optimizer.update_swa()
 
-      return summary_loss,acc_score
+      return summary_loss,rocauc_score
     def distributed_test_epoch(epoch_num):
         summary_loss = AverageMeter()
-        acc_score= ACCMeter()
+        rocauc_score= ROCAUCMeter()
 
         self.model.eval()
         t = time.time()
@@ -227,26 +220,21 @@ class Train(object):
                 loss = self.criterion_val(output, target)
 
                 summary_loss.update(loss.detach().item(), batch_size)
-                acc_score.update(target, output)
+                rocauc_score.update(target, output)
 
                 if step % cfg.TRAIN.log_interval == 0:
-                    acc_avg, auc_avg = acc_score.avg
+
                     log_message = '[fold %d], '\
                                   'Val Step %d, ' \
                                   'summary_loss: %.6f, ' \
-                                  'accuracy: %.6f, ' \
-                                  'roc_auc: %.6f, ' \
                                   'time: %.6f' % (
                                   self.fold,step,
                                   summary_loss.avg,
-                                  acc_avg,
-                                  auc_avg,
                                   time.time() - t)
 
                     logger.info(log_message)
 
-
-        return summary_loss,acc_score
+        return summary_loss,rocauc_score
 
     for epoch in range(self.epochs):
 
@@ -255,19 +243,16 @@ class Train(object):
       logger.info('learning rate: [%f]' %(lr))
       t=time.time()
 
-      summary_loss,acc_score = distributed_train_epoch(epoch)
-      acc_avg, auc_avg = acc_score.avg
+      summary_loss,rocauc_score = distributed_train_epoch(epoch)
       train_epoch_log_message = '[fold %d], '\
-                                '[RESULT]: Train. Epoch: %d,' \
+                                '[RESULT]: TRAIN. Epoch: %d,' \
                                 ' summary_loss: %.5f,' \
-                                'accuracy: %.5f, ' \
                                 'roc_auc: %.5f, ' \
                                 ' time:%.5f' % (
                                 self.fold,
                                 epoch,
                                 summary_loss.avg,
-                                acc_avg,
-                                auc_avg,
+                                rocauc_score.avg,
                                 (time.time() - t))
       logger.info(train_epoch_log_message)
 
@@ -282,19 +267,17 @@ class Train(object):
 
       if epoch%cfg.TRAIN.test_interval==0:
 
-          summary_loss,acc_score = distributed_test_epoch(epoch)
-          acc_avg, auc_avg = acc_score.avg
+          summary_loss,rocauc_score = distributed_test_epoch(epoch)
+
           val_epoch_log_message = '[fold %d], '\
                                   '[RESULT]: VAL. Epoch: %d,' \
                                   ' summary_loss: %.5f,' \
-                                  'accuracy: %.5f, ' \
                                   'roc_auc: %.5f, ' \
                                   ' time:%.5f' % (
                                    self.fold,
                                    epoch,
                                    summary_loss.avg,
-                                   acc_avg,
-                                   auc_avg,
+                                   rocauc_score.avg,
                                    (time.time() - t))
           logger.info(val_epoch_log_message)
 

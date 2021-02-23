@@ -28,7 +28,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-class ACCMeter(object):
+class ROCAUCMeter(object):
     def __init__(self):
         self.reset()
 
@@ -38,39 +38,26 @@ class ACCMeter(object):
         self.score = 0
 
 
-
         self.y_true_11=np.array([[0,0,0,0,0,0,0,0,0,0,0]])
         self.y_pred_11 = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
     def update(self, y_true, y_pred):
         y_true = y_true.cpu().numpy()
 
-        y_pred = torch.nn.functional.sigmoid(y_pred).data.cpu().numpy()
+        y_pred = torch.sigmoid(y_pred).data.cpu().numpy()
 
         self.y_true_11 = np.concatenate((self.y_true_11, y_true),axis=0)
         self.y_pred_11 = np.concatenate((self.y_pred_11, y_pred),axis=0)
 
 
-
-        y_true = np.argmax(y_true, 1)
-
-        y_pred = np.argmax(y_pred,1)
-
-        self.y_true = np.hstack((self.y_true, y_true))
-        self.y_pred = np.hstack((self.y_pred, y_pred))
-
-
     @property
     def avg(self):
-        right=(self.y_pred==self.y_true).astype(np.float)
 
-        auc_scor=0
-
+        aucs = []
         for i in range(11):
-            try:
-                tmp_score=roc_auc_score(self.y_true_11[:, i], self.y_pred_11[:, i])
-            except:
-                tmp_score=0
+            aucs.append(roc_auc_score(self.y_true_11[:,i], self.y_pred_11[:, i]))
+        print(np.round(aucs, 4))
+        return np.mean(aucs)
 
-            auc_scor+=tmp_score/11.
-        return np.sum(right)/self.y_true.shape[0],auc_scor
+
 
