@@ -29,13 +29,13 @@ def main():
         val_data = data.iloc[val_ind].copy()
 
 
-        trainds=AlaskaDataIter(train_data)
+        trainds=AlaskaDataIter(train_data,training_flag=True,shuffle=False)
         train_ds = DataLoader(trainds,
                               cfg.TRAIN.batch_size,
                               num_workers=cfg.TRAIN.process_num,
                               shuffle=True)
 
-        valds = AlaskaDataIter(val_data)
+        valds = AlaskaDataIter(val_data,training_flag=False,shuffle=False)
         test_ds = DataLoader(valds,
                              cfg.TRAIN.batch_size,
                              num_workers=cfg.TRAIN.process_num,
