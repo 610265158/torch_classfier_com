@@ -48,7 +48,7 @@ class Train(object):
     self.l2_regularization=cfg.TRAIN.weight_decay_factor
 
 
-    self.accumulation_step=cfg.TRAIN.accumulation_batch_size/cfg.TRAIN.batch_size
+    self.accumulation_step=cfg.TRAIN.accumulation_batch_size//cfg.TRAIN.batch_size
     self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
 
