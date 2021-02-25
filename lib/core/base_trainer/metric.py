@@ -11,6 +11,11 @@ import torch.nn as nn
 
 from sklearn.metrics import roc_auc_score
 from lib.utils.logger import logger
+
+import warnings
+
+warnings.filterwarnings('ignore')
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
@@ -33,21 +38,23 @@ class ROCAUCMeter(object):
         self.reset()
 
     def reset(self):
-        self.y_true = np.array([0,1])
-        self.y_pred = np.array([0,1])
-        self.score = 0
 
-
-        self.y_true_11=np.array([[0,0,0,0,0,0,0,0,0,0,0]])
-        self.y_pred_11 = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+        self.y_true_11=None
+        self.y_pred_11 = None
 
     def update(self, y_true, y_pred):
         y_true = y_true.cpu().numpy()
 
         y_pred = torch.sigmoid(y_pred).data.cpu().numpy()
 
-        self.y_true_11 = np.concatenate((self.y_true_11, y_true),axis=0)
-        self.y_pred_11 = np.concatenate((self.y_pred_11, y_pred),axis=0)
+
+
+        if self.y_true_11 is None:
+            self.y_true_11 = y_true
+            self.y_pred_11 = y_pred
+        else:
+            self.y_true_11 = np.concatenate((self.y_true_11, y_true),axis=0)
+            self.y_pred_11 = np.concatenate((self.y_pred_11, y_pred),axis=0)
 
 
     @property
@@ -57,6 +64,8 @@ class ROCAUCMeter(object):
         for i in range(11):
             aucs.append(roc_auc_score(self.y_true_11[:,i], self.y_pred_11[:, i]))
         print(np.round(aucs, 4))
+
+        
         return np.mean(aucs)
 
 
