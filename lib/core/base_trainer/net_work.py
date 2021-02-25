@@ -47,6 +47,8 @@ class Train(object):
     self.batch_size = cfg.TRAIN.batch_size
     self.l2_regularization=cfg.TRAIN.weight_decay_factor
 
+
+    self.accumulation_step=cfg.TRAIN.accumulation_batch_size/cfg.TRAIN.batch_size
     self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
 
@@ -163,15 +165,16 @@ class Train(object):
 
         summary_loss.update(current_loss.detach().item(), batch_size)
         rocauc_score.update(target,output)
-        self.optimizer.zero_grad()
+
 
         if cfg.TRAIN.mix_precision:
             with amp.scale_loss(current_loss, self.optimizer) as scaled_loss:
                 scaled_loss.backward()
         else:
             current_loss.backward()
-
-        self.optimizer.step()
+        if ((self.iter_num + 1) % self.accumulation_steps) == 0:
+            self.optimizer.step()
+            self.optimizer.zero_grad()
         if cfg.MODEL.ema:
             self.ema.update()
         self.iter_num+=1
