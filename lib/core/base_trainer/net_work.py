@@ -172,7 +172,7 @@ class Train(object):
                 scaled_loss.backward()
         else:
             current_loss.backward()
-        if ((self.iter_num + 1) % self.accumulation_steps) == 0:
+        if ((self.iter_num + 1) % self.accumulation_step) == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
         if cfg.MODEL.ema:
