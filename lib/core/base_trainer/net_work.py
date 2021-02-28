@@ -321,7 +321,7 @@ class Train(object):
 
       if cur_roc_auc_score>best_roc_auc:
           best_roc_auc=cur_roc_auc_score
-          logger.info(' best metric score update as ' , (best_roc_auc))
+          logger.info(' best metric score update as %.6f' % (best_roc_auc))
       else:
           not_improvement+=1
 
