@@ -47,6 +47,7 @@ class Train(object):
     self.batch_size = cfg.TRAIN.batch_size
     self.l2_regularization=cfg.TRAIN.weight_decay_factor
 
+    self.early_stop=cfg.MODEL.early_stop
 
     self.accumulation_step=cfg.TRAIN.accumulation_batch_size//cfg.TRAIN.batch_size
     self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
@@ -239,6 +240,11 @@ class Train(object):
 
         return summary_loss,rocauc_score
 
+
+
+
+    best_roc_auc=0.
+    not_improvement=0
     for epoch in range(self.epochs):
 
       for param_group in self.optimizer.param_groups:
@@ -271,7 +277,7 @@ class Train(object):
       if epoch%cfg.TRAIN.test_interval==0:
 
           summary_loss,rocauc_score = distributed_test_epoch(epoch)
-
+          cur_roc_auc_score=rocauc_score.avg
           val_epoch_log_message = '[fold %d], '\
                                   '[RESULT]: VAL. Epoch: %d,' \
                                   ' summary_loss: %.5f,' \
@@ -280,7 +286,7 @@ class Train(object):
                                    self.fold,
                                    epoch,
                                    summary_loss.avg,
-                                   rocauc_score.avg,
+                                   cur_roc_auc_score,
                                    (time.time() - t))
           logger.info(val_epoch_log_message)
 
@@ -293,7 +299,10 @@ class Train(object):
       ###save the best auc model
 
       #### save the model every end of epoch
-      current_model_saved_name='./models/fold%d_epoch_%d_val_loss%.6f.pth'%(self.fold,epoch,summary_loss.avg)
+      current_model_saved_name='./models/fold%d_epoch_%d_val_loss_%.6f_rocauc_%.6f.pth'%(self.fold,
+                                                                                         epoch,
+                                                                                         summary_loss.avg,
+                                                                                         cur_roc_auc_score)
 
       logger.info('A model saved to %s' % current_model_saved_name)
       torch.save(self.model.state_dict(),current_model_saved_name)
@@ -310,6 +319,15 @@ class Train(object):
           ###switch back to plain model to train next epoch
           self.optimizer.swap_swa_sgd()
 
+      if cur_roc_auc_score>best_roc_auc:
+          best_roc_auc=cur_roc_auc_score
+          logger.info(' best metric score update as ' , (best_roc_auc))
+      else:
+          not_improvement+=1
+
+      if not_improvement>=self.early_stop:
+          logger.info(' best metric score not improvement for %d, break'%(self.early_stop))
+          break
 
 
 

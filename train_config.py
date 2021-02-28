@@ -58,6 +58,7 @@ config.MODEL.label_smooth=0.0
 config.MODEL.fmix=0.0
 config.MODEL.mixup=0.0
 config.MODEL.gempool=False
+config.MODEL.early_stop=5
 
 config.MODEL.pretrained_model=None
 
