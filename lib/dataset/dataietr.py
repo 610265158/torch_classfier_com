@@ -96,35 +96,41 @@ class AlaskaDataIter():
         # logger.info('after balance contains%d samples'%len(self.lst))
         self.train_trans=A.Compose([A.RandomResizedCrop(height=cfg.MODEL.height,
                                                         width=cfg.MODEL.width,
-                                                        scale=[0.9,1.]
+                                                        scale=[0.8,1.]
                                                         ),
-                                    A.HorizontalFlip(p=0.5),
+                                    #A.HorizontalFlip(p=0.5),
                                     A.ShiftScaleRotate(p=0.7,
-                                                       shift_limit=0.1,
-                                                       scale_limit=0.1,
+                                                       shift_limit=0.2,
+                                                       scale_limit=0.2,
                                                        rotate_limit=20,
                                                        border_mode=cv2.BORDER_CONSTANT),
                                     A.HueSaturationValue(hue_shift_limit=10,
-                                                         sat_shift_limit=20,
-                                                         val_shift_limit=20,
+                                                         sat_shift_limit=10,
+                                                         val_shift_limit=10,
                                                          p=0.7),
                                     A.RandomBrightnessContrast(brightness_limit=(0.2), contrast_limit=(0.2),
                                                              p=0.7),
+                                    A.CLAHE(clip_limit=(1, 4), p=0.5),
+                                    A.OneOf([
+                                        A.OpticalDistortion(distort_limit=1.0),
+                                        A.GridDistortion(num_steps=5, distort_limit=1.),
+                                        A.ElasticTransform(alpha=3),
+                                    ], p=0.2),
+                                    A.OneOf([
+                                        A.GaussNoise(),
+                                        A.GaussianBlur(),
+                                        A.MotionBlur(),
+                                        A.MedianBlur(),
+                                    ], p=0.2),
+                                    A.JpegCompression(p=0.2),
                                     A.OneOf([
                                         A.IAAAffine(mode='constant'),
-                                        A.IAAPerspective()
+                                        A.IAAPerspective(),
+                                        A.IAAPiecewiseAffine(p=0.2),
+                                        A.IAASharpen(p=0.2),
+                                    ], p=0.2),
 
-                                    ], p=0.5),
-
-                                    A.OneOf([
-                                        A.MotionBlur(blur_limit=5),
-                                        A.MedianBlur(blur_limit=5),
-                                        A.GaussianBlur(blur_limit=5),
-                                        A.GaussNoise(var_limit=(5.0, 30.0)),
-                                    ], p=0.5),
-                                    
-
-
+                                    # A.CoarseDropout(max_holes=6,max_width=64,max_height=64)
                               ])
 
 
@@ -240,7 +246,18 @@ class AlaskaDataIter():
 
 
 
+    def random_resize(self,image,scale_range=[0.5,1]):
 
+        scale=random.uniform(*scale_range)
+
+        resize_method=random.choice([cv2.INTER_NEAREST,
+                                     cv2.INTER_LINEAR,
+                                     cv2.INTER_CUBIC,
+                                     cv2.INTER_AREA])
+
+        image_resized=cv2.resize(image,dsize=None,fx=scale,fy=scale,interpolation=resize_method)
+
+        return image_resized
 
     def single_map_func(self, dp, is_training):
         """Data augmentation function."""
@@ -256,20 +273,11 @@ class AlaskaDataIter():
             image = cv2.imread(fname)
 
 
-
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-
 
             if is_training:
 
                 image=self.train_trans(image=image)['image']
-
-                # ###cutout
-                # if random.uniform(0, 1) >= 0.5:
-                #     image=self.random_dash(image,8,64)
-
-
 
             else:
 
@@ -281,7 +289,7 @@ class AlaskaDataIter():
             label=np.zeros_like(label)
         image = np.transpose(image, axes=[2, 0, 1])
 
-        image=image.astype(np.uint8)
+
 
         label = np.array(dp[1],dtype=np.int)
         return image,label
