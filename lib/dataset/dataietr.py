@@ -98,7 +98,7 @@ class AlaskaDataIter():
                                                         width=cfg.MODEL.width,
                                                         scale=[0.8,1.]
                                                         ),
-                                    #A.HorizontalFlip(p=0.5),
+                                    A.HorizontalFlip(p=0.5),
                                     A.ShiftScaleRotate(p=0.7,
                                                        shift_limit=0.2,
                                                        scale_limit=0.2,
@@ -112,7 +112,6 @@ class AlaskaDataIter():
                                                              p=0.7),
                                     A.CLAHE(clip_limit=(1, 4), p=0.5),
                                     A.OneOf([
-                                        A.OpticalDistortion(distort_limit=1.0),
                                         A.GridDistortion(num_steps=5, distort_limit=1.),
                                         A.ElasticTransform(alpha=3),
                                     ], p=0.2),
@@ -135,6 +134,7 @@ class AlaskaDataIter():
 
 
         self.val_trans=A.Compose([
+
                                    A.Resize(height=cfg.MODEL.height,
                                            width=cfg.MODEL.width)
 
