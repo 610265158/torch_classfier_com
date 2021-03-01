@@ -96,32 +96,26 @@ class AlaskaDataIter():
         # logger.info('after balance contains%d samples'%len(self.lst))
         self.train_trans=A.Compose([A.RandomResizedCrop(height=cfg.MODEL.height,
                                                         width=cfg.MODEL.width,
-                                                        scale=[0.8,1.]
+                                                        scale=[0.9,1.]
                                                         ),
-                                    A.HorizontalFlip(p=0.5),
+                                    #A.HorizontalFlip(p=0.5),
                                     A.ShiftScaleRotate(p=0.7,
                                                        shift_limit=0.2,
                                                        scale_limit=0.2,
                                                        rotate_limit=20,
                                                        border_mode=cv2.BORDER_CONSTANT),
-                                    A.HueSaturationValue(hue_shift_limit=10,
-                                                         sat_shift_limit=10,
-                                                         val_shift_limit=10,
-                                                         p=0.7),
+
                                     A.RandomBrightnessContrast(brightness_limit=(0.2), contrast_limit=(0.2),
                                                              p=0.7),
                                     A.CLAHE(clip_limit=(1, 4), p=0.5),
                                     A.OneOf([
-                                        A.GridDistortion(num_steps=5, distort_limit=1.),
-                                        A.ElasticTransform(alpha=3),
+                                        A.GridDistortion(num_steps=5, distort_limit=1.,border_mode=cv2.BORDER_CONSTANT),
+                                        A.ElasticTransform(alpha=3,border_mode=cv2.BORDER_CONSTANT),
                                     ], p=0.2),
-                                    A.OneOf([
-                                        A.GaussNoise(),
-                                        A.GaussianBlur(),
-                                        A.MotionBlur(),
-                                        A.MedianBlur(),
-                                    ], p=0.2),
-                                    A.JpegCompression(p=0.2),
+
+                                    A.JpegCompression(p=0.2,
+                                                      quality_lower=80,
+                                                      quality_upper=100),
                                     A.OneOf([
                                         A.IAAAffine(mode='constant'),
                                         A.IAAPerspective(),
@@ -270,10 +264,7 @@ class AlaskaDataIter():
         label = np.array(dp[1])
 
         try:
-            image = cv2.imread(fname)
-
-
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = cv2.imread(fname,-1)
 
             if is_training:
 
@@ -285,11 +276,11 @@ class AlaskaDataIter():
         except:
             print(traceback.print_exc())
             logger.info('err happends with %s'% fname)
-            image=np.zeros(shape=[cfg.MODEL.height,cfg.MODEL.width,cfg.MODEL.channel])
+            image=np.zeros(shape=[cfg.MODEL.height,cfg.MODEL.width])
             label=np.zeros_like(label)
-        image = np.transpose(image, axes=[2, 0, 1])
+        image = np.expand_dims(image,axis=0)
 
-
+        image = np.concatenate([image,image,image],axis=0)
 
         label = np.array(dp[1],dtype=np.int)
         return image,label
