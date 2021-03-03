@@ -323,7 +323,7 @@ class AlaskaDataIter():
                              color=(255))
 
                 one_tap = cv2.blur(one_tap, ksize=(7, 7))
-                one_tap=one_tap/np.max(one_tap)
+                one_tap[one_tap>0]=1
                 seg_label[:,:,label]=one_tap
 
 
@@ -347,11 +347,19 @@ class AlaskaDataIter():
             extra_label.append(tmp)
 
 
+
+
+
         try:
 
             image_raw = cv2.imread(fname,-1)
+            h,w=image_raw.shape
+            for i in range(len(extra_label)):
+                pp= extra_label[i]["keypoints"]
 
-
+                if len(pp)>0:
+                    pp[:,0][pp[:,0]>=w]=w-1
+                    pp[:, 1][pp[:, 1] >= h] = h - 1
             if is_training:
                 transformed=self.train_trans(image=image_raw,
                                              keypoints =extra_label[0]['keypoints'],
@@ -387,25 +395,12 @@ class AlaskaDataIter():
 
 
             else:
-                transformed = self.val_trans(image=image_raw,
-                                               keypoints=extra_label[0]['keypoints'],
-                                               keypoints1=extra_label[1]['keypoints'],
-                                               keypoints2=extra_label[2]['keypoints'],
-                                               keypoints3=extra_label[3]['keypoints'],
-                                               keypoints4=extra_label[4]['keypoints'],
-                                               keypoints5=extra_label[5]['keypoints'],
+                transformed = self.val_trans(image=image_raw
                                                )
 
                 image = transformed['image']
-                extra_label[0]['transkps'] = transformed['keypoints']
-                extra_label[1]['transkps'] = transformed['keypoints1']
-                extra_label[2]['transkps'] = transformed['keypoints2']
-                extra_label[3]['transkps'] = transformed['keypoints3']
-                extra_label[4]['transkps'] = transformed['keypoints4']
-                extra_label[5]['transkps'] = transformed['keypoints5']
 
-                mask,mask_weight = self.get_seg_label(image, extra_label)
-
+                return image,label
 
 
         except:
@@ -413,6 +408,9 @@ class AlaskaDataIter():
             logger.info('err happends with %s'% fname)
             image=np.zeros(shape=[cfg.MODEL.height,cfg.MODEL.width],dtype=np.uint8)
             label=np.zeros_like(label)
+
+            mask = np.zeros([cfg.MODEL.height//4,cfg.MODEL.width//4,11])
+            mask_weight=0
         image = np.expand_dims(image,axis=0)
 
         image = np.concatenate([image,image,image],axis=0)

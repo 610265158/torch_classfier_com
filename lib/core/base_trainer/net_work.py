@@ -100,7 +100,7 @@ class Train(object):
 
     self.criterion_val = BCEWithLogitsLoss(smooth_eps=0.0).to(self.device)
 
-    self.seg_loss=DiceLoss().to(self.device)
+    self.seg_loss=BCEWithLogitsLoss(smooth_eps=0.0).to(self.device)
     self.fmix=FMix(loss_function=self.criterion,size=(cfg.MODEL.height,cfg.MODEL.width))
 
   def custom_loop(self):
@@ -146,8 +146,8 @@ class Train(object):
 
         data = images.to(self.device).float()
         target = target.to(self.device).long()
-        mask= mask.to(self.device).float()
-        mask_weight= mask_weight.to(self.device).float()
+        mask= mask.to(self.device).long()
+        mask_weight= mask_weight.to(self.device).long()
 
         batch_size = data.shape[0]
 
@@ -217,7 +217,7 @@ class Train(object):
         self.model.eval()
         t = time.time()
         with torch.no_grad():
-            for step,(images, target,mask,mask_weight) in enumerate(self.val_ds):
+            for step,(images, target) in enumerate(self.val_ds):
 
                 data = images.to(self.device).float()
                 target = target.to(self.device).long()
