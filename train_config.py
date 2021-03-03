@@ -9,7 +9,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 config.TRAIN = edict()
 #### below are params for dataiter
-config.TRAIN.process_num = 4
+config.TRAIN.process_num = 0
 config.TRAIN.prefetch_size = 15
 ############
 
@@ -23,7 +23,7 @@ config.TRAIN.epoch = 15
 config.TRAIN.init_lr=5.e-4
 
 config.TRAIN.weight_decay_factor = 1.e-4                                  ####l2
-config.TRAIN.vis=False                                                      #### if to check the training data
+config.TRAIN.vis=True                                                      #### if to check the training data
 
 
 config.TRAIN.vis_mixcut=False

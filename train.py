@@ -47,23 +47,31 @@ def main():
         print('it is here')
         if cfg.TRAIN.vis:
             print('show it, here')
-            for images, labels in train_ds:
+            for images, labels,mask,mask_weight in train_ds:
 
 
                 # images, mask, labels = cutmix_numpy(images, mask, labels, 0.5)
-                print(images.shape)
+                print(mask.shape)
+
                 for i in range(images.shape[0]):
+
+
                     example_image=np.array(images[i],dtype=np.uint8)
                     example_image=np.transpose(example_image,[1,2,0])
                     example_label=np.array(labels[i])
 
-                    _h, _w, _ = example_image.shape
+                    example_mask=np.array(mask[i])
+                    if mask_weight[i]>0:
+                        for j in range(11):
+                            cv2.imshow('mask%d'%(j), example_mask[j,:,:])
 
-                    print(example_label)
+                        _h, _w, _ = example_image.shape
 
-                    cv2.imshow('example',example_image)
+                        print(example_label)
 
-                    cv2.waitKey(0)
+                        cv2.imshow('example',example_image)
+
+                        cv2.waitKey(0)
 
         ### train
         trainer.custom_loop()

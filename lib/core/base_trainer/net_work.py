@@ -28,7 +28,7 @@ from torchcontrib.optim import SWA
 
 
 from lib.core.model.mix.mix import cutmix,cutmix_criterion,mixup,mixup_criterion
-
+from lib.core.model.loss.dice_loss import DiceLoss
 
 
 if cfg.TRAIN.mix_precision:
@@ -96,9 +96,11 @@ class Train(object):
 
     self.criterion = BCEWithLogitsLoss(smooth_eps=cfg.MODEL.label_smooth).to(self.device)
 
+
+
     self.criterion_val = BCEWithLogitsLoss(smooth_eps=0.0).to(self.device)
 
-
+    self.seg_loss=DiceLoss().to(self.device)
     self.fmix=FMix(loss_function=self.criterion,size=(cfg.MODEL.height,cfg.MODEL.width))
 
   def custom_loop(self):
@@ -127,7 +129,7 @@ class Train(object):
 
 
 
-      for images, target in self.train_ds:
+      for images, target,mask,mask_weight in self.train_ds:
 
         if epoch_num<10:
             ###excute warm up in the first epoch
@@ -144,6 +146,8 @@ class Train(object):
 
         data = images.to(self.device).float()
         target = target.to(self.device).long()
+        mask= mask.to(self.device).float()
+        mask_weight= mask_weight.to(self.device).float()
 
         batch_size = data.shape[0]
 
@@ -160,9 +164,9 @@ class Train(object):
             current_loss = self.fmix.loss(output, target)
 
         else:
-            output = self.model(data)
+            output, seg = self.model(data)
 
-            current_loss = self.criterion(output, target)
+            current_loss = self.criterion(output, target)+self.seg_loss(seg,mask,mask_weight)
 
         summary_loss.update(current_loss.detach().item(), batch_size)
         rocauc_score.update(target,output)
@@ -213,14 +217,14 @@ class Train(object):
         self.model.eval()
         t = time.time()
         with torch.no_grad():
-            for step,(images, target) in enumerate(self.val_ds):
+            for step,(images, target,mask,mask_weight) in enumerate(self.val_ds):
 
                 data = images.to(self.device).float()
                 target = target.to(self.device).long()
                 batch_size = data.shape[0]
 
 
-                output = self.model(data)
+                output,_ = self.model(data)
                 loss = self.criterion_val(output, target)
 
                 summary_loss.update(loss.detach().item(), batch_size)

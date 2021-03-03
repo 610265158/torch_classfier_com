@@ -5,7 +5,7 @@ import cv2
 import json
 import numpy as np
 import copy
-
+import pandas as pd
 from lib.utils.logger import logger
 from tensorpack.dataflow import DataFromGenerator, BatchData, MultiProcessPrefetchData, PrefetchDataZMQ, RepeatedData
 import time
@@ -30,11 +30,25 @@ class data_info(object):
         self.df=df
         self.metas=[]
         self.training=training
+        self.ann = pd.read_csv('../train/_annotations.csv')
+
 
         self.load_anns()
 
 
+
     def load_anns(self):
+        def get_label(data):
+
+            data = data[2:-2].split('], [')
+
+            res = []
+
+            for item in data:
+                x, y = item.split(', ')
+                res.append([int(x), int(y)])
+
+            return np.array(res)
 
         num_sample=len(self.df)
 
@@ -42,6 +56,10 @@ class data_info(object):
         target_cols=['ETT - Abnormal','ETT - Borderline','ETT - Normal',
                      'NGT - Abnormal','NGT - Borderline','NGT - Incompletely Imaged','NGT - Normal',
                      'CVC - Abnormal','CVC - Borderline','CVC - Normal','Swan Ganz Catheter Present']
+
+
+
+        max_ann=0
         for i in range(num_sample):
 
             cur_line= self.df.iloc[i]
@@ -50,13 +68,38 @@ class data_info(object):
 
             fname = str(cur_line['StudyInstanceUID']).rstrip()
 
+            extra_label = []
+            if fname in self.ann['StudyInstanceUID'].values:
+
+                cur_data=self.ann[self.ann['StudyInstanceUID']==fname]
 
 
 
+                for k in range(len(cur_data)):
+                    cur_label={}
+                    cur_label['label']=target_cols.index(cur_data.iloc[k]['label'])
+
+
+                    points=get_label(cur_data.iloc[k]['data'])
+                    points[points<0]=0
+                    cur_label['keypoints']=points
+                    cur_label['num_points'] = len(points)
+                    extra_label.append(cur_label)
+
+
+
+
+                # ann_label=cur_data['label']
+                # keypoint=get_label(cur_data['data'].values)
+
+                # print(keypoint)
+
+            if len(extra_label)>max_ann:
+                max_ann=len(extra_label)
             label = cur_line[target_cols].values
 
 
-            self.metas.append([fname, label])
+            self.metas.append([fname, label,extra_label])
 
             ###some change can be made here
 
@@ -108,10 +151,10 @@ class AlaskaDataIter():
                                     A.RandomBrightnessContrast(brightness_limit=(0.2), contrast_limit=(0.2),
                                                              p=0.7),
                                     A.CLAHE(clip_limit=(1, 4), p=0.5),
-                                    A.OneOf([
-                                        A.GridDistortion(num_steps=5, distort_limit=1.,border_mode=cv2.BORDER_CONSTANT),
-                                        A.ElasticTransform(alpha=3,border_mode=cv2.BORDER_CONSTANT),
-                                    ], p=0.2),
+                                    # A.OneOf([
+                                    #     A.GridDistortion(num_steps=5, distort_limit=1.,border_mode=cv2.BORDER_CONSTANT),
+                                    #     A.ElasticTransform(alpha=3,border_mode=cv2.BORDER_CONSTANT),
+                                    # ], p=0.2),
 
                                     A.JpegCompression(p=0.2,
                                                       quality_lower=80,
@@ -124,7 +167,14 @@ class AlaskaDataIter():
                                     ], p=0.2),
 
                                     # A.CoarseDropout(max_holes=6,max_width=64,max_height=64)
-                              ])
+                              ] ,
+                                         keypoint_params=A.KeypointParams(format='xy'),
+                                         additional_targets={'keypoints1': 'keypoints',
+                                                             'keypoints2': 'keypoints',
+                                                             'keypoints3': 'keypoints',
+                                                             'keypoints4': 'keypoints',
+                                                             'keypoints5': 'keypoints',}
+                              )
 
 
         self.val_trans=A.Compose([
@@ -253,34 +303,122 @@ class AlaskaDataIter():
 
         return image_resized
 
+
+    def get_seg_label(self,image,extra_label, divide=4):
+
+        h,w=image.shape
+        seg_label=np.zeros([h//divide,w//divide,11])
+
+        ann=0
+        for i in range(len(extra_label)):
+            one_tap=np.zeros([h//divide,w//divide])
+
+            points=np.array(extra_label[i]['transkps'])//divide
+            label=extra_label[i]['label']
+            if label!=-1:
+                ann=1
+                for j in range(points.shape[0]-1):
+                    cv2.line(one_tap,pt1=(int(points[j][0]),int(points[j][1])),
+                             pt2=(int(points[j+1][0]),int(points[j+1][1])),
+                             color=(255))
+
+                one_tap = cv2.blur(one_tap, ksize=(7, 7))
+                one_tap=one_tap/np.max(one_tap)
+                seg_label[:,:,label]=one_tap
+
+
+        return seg_label,ann
+
     def single_map_func(self, dp, is_training):
         """Data augmentation function."""
         ####customed here
 
         fname = os.path.join(cfg.DATA.data_root_path,dp[0]+'.jpg')
 
-
-
         label = np.array(dp[1])
+        extra_label=dp[2]
+
+
+
+        for i in range(6-len(extra_label)):
+            tmp={'keypoints':[],
+                 'label':-1}
+
+            extra_label.append(tmp)
+
 
         try:
-            image = cv2.imread(fname,-1)
+
+            image_raw = cv2.imread(fname,-1)
+
 
             if is_training:
+                transformed=self.train_trans(image=image_raw,
+                                             keypoints =extra_label[0]['keypoints'],
+                                             keypoints1=extra_label[1]['keypoints'],
+                                             keypoints2=extra_label[2]['keypoints'],
+                                             keypoints3=extra_label[3]['keypoints'],
+                                             keypoints4=extra_label[4]['keypoints'],
+                                             keypoints5=extra_label[5]['keypoints'],
+                                             )
 
-                image=self.train_trans(image=image)['image']
+                image=transformed['image']
+                extra_label[0]['transkps']=transformed['keypoints']
+                extra_label[1]['transkps'] = transformed['keypoints1']
+                extra_label[2]['transkps'] = transformed['keypoints2']
+                extra_label[3]['transkps'] = transformed['keypoints3']
+                extra_label[4]['transkps'] = transformed['keypoints4']
+                extra_label[5]['transkps'] = transformed['keypoints5']
+
+                mask,mask_weight=self.get_seg_label(image,extra_label)
+
+                # for i in range(len(extra_label)):
+                #
+                #     kps=np.array(extra_label[i]['transkps'],dtype=np.int)
+                #
+                #     if len(kps)>0:
+                #         for i in range(kps.shape[0]):
+                #             cv2.circle(image, center=(int(kps[i][0]), int(kps[i][1])), color=(0, 0, 255), radius=5,thickness=5)
+
+
+
+
+
+
 
             else:
+                transformed = self.val_trans(image=image_raw,
+                                               keypoints=extra_label[0]['keypoints'],
+                                               keypoints1=extra_label[1]['keypoints'],
+                                               keypoints2=extra_label[2]['keypoints'],
+                                               keypoints3=extra_label[3]['keypoints'],
+                                               keypoints4=extra_label[4]['keypoints'],
+                                               keypoints5=extra_label[5]['keypoints'],
+                                               )
 
-                image=self.val_trans(image=image)['image']
+                image = transformed['image']
+                extra_label[0]['transkps'] = transformed['keypoints']
+                extra_label[1]['transkps'] = transformed['keypoints1']
+                extra_label[2]['transkps'] = transformed['keypoints2']
+                extra_label[3]['transkps'] = transformed['keypoints3']
+                extra_label[4]['transkps'] = transformed['keypoints4']
+                extra_label[5]['transkps'] = transformed['keypoints5']
+
+                mask,mask_weight = self.get_seg_label(image, extra_label)
+
+
+
         except:
             print(traceback.print_exc())
             logger.info('err happends with %s'% fname)
-            image=np.zeros(shape=[cfg.MODEL.height,cfg.MODEL.width])
+            image=np.zeros(shape=[cfg.MODEL.height,cfg.MODEL.width],dtype=np.uint8)
             label=np.zeros_like(label)
         image = np.expand_dims(image,axis=0)
 
         image = np.concatenate([image,image,image],axis=0)
 
         label = np.array(dp[1],dtype=np.int)
-        return image,label
+
+        mask=np.transpose(mask,axes=[2,0,1])
+
+        return image,label,mask,mask_weight
