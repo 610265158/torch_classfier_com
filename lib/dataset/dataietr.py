@@ -395,11 +395,13 @@ class AlaskaDataIter():
 
 
             else:
-                transformed = self.val_trans(image=image_raw
-                                               )
+                transformed = self.val_trans(image=image_raw)
 
                 image = transformed['image']
+                image = np.expand_dims(image, axis=0)
 
+                image = np.concatenate([image, image, image], axis=0)
+                label = np.array(dp[1], dtype=np.int)
                 return image,label
 
 
