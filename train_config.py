@@ -53,7 +53,7 @@ config.DATA.PIXEL_STD = np.array([0.238, 0.219, 0.232]).reshape(1,3,1,1)
 ####mainly hyper params
 config.TRAIN.warmup_step=1500
 config.TRAIN.opt='Adamw'
-config.TRAIN.SWA=6    ### -1 use no swa   from which epoch start SWA
+config.TRAIN.SWA=-1    ### -1 use no swa   from which epoch start SWA
 config.MODEL.label_smooth=0.0
 config.MODEL.fmix=0.0
 config.MODEL.mixup=0.0
@@ -66,7 +66,7 @@ config.MODEL.num_class=11
 config.MODEL.freeze_bn=False
 config.MODEL.freeze_bn_affine=False
 
-config.MODEL.ema=False
+config.MODEL.ema=True
 config.MODEL.focal_loss=False
 config.SEED=42
 
