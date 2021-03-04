@@ -139,12 +139,12 @@ class AlaskaDataIter():
         # logger.info('after balance contains%d samples'%len(self.lst))
         self.train_trans=A.Compose([A.RandomResizedCrop(height=cfg.MODEL.height,
                                                         width=cfg.MODEL.width,
-                                                        scale=[0.8,1.]
+                                                        scale=[0.9,1.]
                                                         ),
                                     A.HorizontalFlip(p=0.5),
                                     A.ShiftScaleRotate(p=0.5,
                                                        shift_limit=0.2,
-                                                       scale_limit=0.1,
+                                                       scale_limit=0.2,
                                                        rotate_limit=20,
                                                        border_mode=cv2.BORDER_CONSTANT),
 
@@ -322,7 +322,7 @@ class AlaskaDataIter():
                              pt2=(int(points[j+1][0]),int(points[j+1][1])),
                              color=(255))
 
-                one_tap = cv2.blur(one_tap, ksize=(7, 7))
+                one_tap = cv2.blur(one_tap, ksize=(5, 5))
                 one_tap[one_tap>0]=1
                 seg_label[:,:,label]=one_tap
 

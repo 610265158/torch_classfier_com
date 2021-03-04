@@ -177,7 +177,7 @@ class Train(object):
                 scaled_loss.backward()
         else:
             current_loss.backward()
-        nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=20, norm_type=2)
+        
         if ((self.iter_num + 1) % self.accumulation_step) == 0:
             self.optimizer.step()
             self.optimizer.zero_grad()
