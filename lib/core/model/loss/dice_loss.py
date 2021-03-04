@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class DiceLoss(nn.Model):
+class DiceLoss(nn.Module):
     def __init__(self):
         super(DiceLoss, self).__init__()
 
