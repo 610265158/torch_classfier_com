@@ -34,7 +34,7 @@ class ComplexUpsample(nn.Module):
         return x
 
 class Fpn(nn.Module):
-    def __init__(self,input_dims=[40,64,176,512],head_dims=[256,256,256] ):
+    def __init__(self,input_dims=[256,512,1024,2048],head_dims=[256,256,256] ):
         super().__init__()
 
 
@@ -97,7 +97,7 @@ class Net(nn.Module):
         # self.mean_tensor=torch.from_numpy(cfg.DATA.PIXEL_MEAN ).float().cuda()
         # self.std_val_tensor = torch.from_numpy(cfg.DATA.PIXEL_STD).float().cuda()
         # self.model = EfficientNet.from_pretrained(model_name='efficientnet-b0')
-        self.model = timm.create_model('tf_efficientnet_b5_ns', pretrained=False,features_only=True)
+        self.model = timm.create_model('resnet200d', pretrained=True,features_only=True)
         # self.model = timm.create_model('hrnet_w32', pretrained=True)
 
 
@@ -110,9 +110,7 @@ class Net(nn.Module):
 
 
 
-        self.conv_head=nn.Sequential(nn.Conv2d(512,2048,kernel_size=1,padding=0,stride=1),
-                                 nn.BatchNorm2d(2048),
-                                 nn.ReLU())
+
         self._fc = nn.Linear(2048 , num_classes, bias=True)
 
         self.seg=nn.Conv2d(in_channels=256,out_channels=num_classes,kernel_size=1,padding=0,stride=1)
@@ -126,11 +124,11 @@ class Net(nn.Module):
         # Convolution layers
         # x = self.model.forward_features(inputs)
         fms = self.model(inputs)
-        for x in fms:
-            print(x.size())
+        # for x in fms:
+        #     print(x.size())
 
         x= fms[-1]
-        x=self.conv_head(x)
+
 
         fm = self._avg_pooling(x)
         fm = fm.view(bs, -1)
