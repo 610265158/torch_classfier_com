@@ -1,27 +1,53 @@
-# Dice损失函数
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class DiceLoss(nn.Module):
     def __init__(self):
         super(DiceLoss, self).__init__()
 
-    def forward(self, input, targets,weights):
-
-        input=torch.sigmoid(input)
-        # 获取每个批次的大小 N
-        N = targets.size()[0]
-        # 平滑变量
+    def forward(self, input, target):
+        N = target.size(0)
         smooth = 1
-        # 将宽高 reshape 到同一纬度
-        input_flat = input.view(N, -1)
-        targets_flat = targets.view(N, -1)
 
-        # 计算交集
-        intersection = input_flat * targets_flat
-        N_dice_eff = (2 * intersection.sum(1) + smooth) / (input_flat.sum(1) + targets_flat.sum(1) + smooth)*weights
-        # 计算一个批次中平均每张图的损失
-        loss = 1 - N_dice_eff.sum() / N
+        input_flat = input.view(N, -1)
+        target_flat = target.view(N, -1)
+
+        intersection = input_flat * target_flat
+
+        loss = 2 * (intersection.sum(1) + smooth) / (input_flat.sum(1) + target_flat.sum(1) + smooth)
+        loss = 1 - loss.sum() / N
+
         return loss
+
+
+class MulticlassDiceLoss(nn.Module):
+    """
+    requires one hot encoded target. Applies DiceLoss on each class iteratively.
+    requires input.shape[0:1] and target.shape[0:1] to be (N, C) where N is
+      batch size and C is number of classes
+    """
+
+    def __init__(self):
+        super(MulticlassDiceLoss, self).__init__()
+
+
+        self.dice_func= DiceLoss()
+    def forward(self, input, target, weights=None):
+
+        if weights is not None:
+            input=input[weights,...]
+            target = target[weights, ...]
+
+        C = target.shape[1]
+
+
+
+        totalLoss = 0
+
+        for i in range(C):
+            diceLoss =  self.dice_func(input[:, i], target[:, i])
+
+            totalLoss += diceLoss
+
+        return totalLoss
