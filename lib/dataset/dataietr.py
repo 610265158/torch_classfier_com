@@ -353,6 +353,10 @@ class AlaskaDataIter():
         try:
 
             image_raw = cv2.imread(fname,-1)
+
+            mask = image_raw > 0
+            image_raw = image_raw[np.ix_(mask.any(1), mask.any(0))]
+
             h,w=image_raw.shape
             for i in range(len(extra_label)):
                 pp= extra_label[i]["keypoints"]
