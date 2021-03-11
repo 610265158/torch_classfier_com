@@ -43,11 +43,6 @@ class ROCAUCMeter(object):
         self.y_pred_11 = None
 
     def update(self, y_true, y_pred):
-        y_true = y_true.cpu().numpy()
-
-        y_pred = torch.sigmoid(y_pred).data.cpu().numpy()
-
-
 
         if self.y_true_11 is None:
             self.y_true_11 = y_true

@@ -169,7 +169,10 @@ class Train(object):
             current_loss = self.criterion(output, target)+self.seg_loss(seg,mask,mask_weight)
 
         summary_loss.update(current_loss.detach().item(), batch_size)
-        rocauc_score.update(target,output)
+
+        output=torch.sigmoid(output)
+        rocauc_score.update(target.detach().cpu().numpy(),
+                            output.detach().cpu().numpy())
 
 
         if cfg.TRAIN.mix_precision:
@@ -224,12 +227,15 @@ class Train(object):
                 target = target.to(self.device).long()
                 batch_size = data.shape[0]
 
-
                 output,_ = self.model(data)
                 loss = self.criterion_val(output, target)
 
                 summary_loss.update(loss.detach().item(), batch_size)
-                rocauc_score.update(target, output)
+                output = torch.sigmoid(output)
+                rocauc_score.update(target.detach().cpu().numpy(),
+                                    output.detach().cpu().numpy())
+
+
 
                 if step % cfg.TRAIN.log_interval == 0:
 
