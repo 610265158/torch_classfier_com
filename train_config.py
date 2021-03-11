@@ -9,7 +9,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 config.TRAIN = edict()
 #### below are params for dataiter
-config.TRAIN.process_num = 6
+config.TRAIN.process_num = 0
 config.TRAIN.prefetch_size = 15
 ############
 
@@ -23,7 +23,7 @@ config.TRAIN.epoch = 15
 config.TRAIN.init_lr=5.e-4
 
 config.TRAIN.weight_decay_factor = 1.e-4                                  ####l2
-config.TRAIN.vis=False                                                      #### if to check the training data
+config.TRAIN.vis=True                                                      #### if to check the training data
 
 
 config.TRAIN.vis_mixcut=False
@@ -36,16 +36,16 @@ config.TRAIN.opt='Adamw'
 
 config.MODEL = edict()
 config.MODEL.model_path = './models/'                                        ## save directory
-config.MODEL.height =  640                                        # input size during training , 128,160,   depends on
-config.MODEL.width  =  640
+config.MODEL.height =  256                                        # input size during training , 128,160,   depends on
+config.MODEL.width  =  256
 
 config.MODEL.channel = 3
 
 
 config.DATA = edict()
 
-config.DATA.data_file='train_folds.csv'
-config.DATA.data_root_path='../train'
+config.DATA.data_file='train_labels.csv'
+config.DATA.data_root_path='/Users/liangzi/Downloads/train'
 ############the model is trained with RGB mode
 config.DATA.PIXEL_MEAN = np.array([ 0.460, 0.442 ,0.390 ]).reshape(1,3,1,1)           ###rgb
 config.DATA.PIXEL_STD = np.array([0.238, 0.219, 0.232]).reshape(1,3,1,1)
@@ -53,12 +53,12 @@ config.DATA.PIXEL_STD = np.array([0.238, 0.219, 0.232]).reshape(1,3,1,1)
 ####mainly hyper params
 config.TRAIN.warmup_step=1500
 config.TRAIN.opt='Adamw'
-config.TRAIN.SWA=6    ### -1 use no swa   from which epoch start SWA
+config.TRAIN.SWA=0    ### -1 use no swa   from which epoch start SWA
 config.MODEL.label_smooth=0.0
 config.MODEL.fmix=0.0
 config.MODEL.mixup=0.0
 config.MODEL.gempool=False
-config.MODEL.early_stop=5
+config.MODEL.early_stop=10
 
 config.MODEL.pretrained_model=None
 

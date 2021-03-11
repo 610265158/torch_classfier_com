@@ -45,7 +45,7 @@ class ROCAUCMeter(object):
     def update(self, y_true, y_pred):
         y_true = y_true.cpu().numpy()
 
-        y_pred = torch.sigmoid(y_pred).data.cpu().numpy()
+        y_pred = torch.sigmoid(y_pred).cpu().numpy()
 
 
 

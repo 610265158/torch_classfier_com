@@ -13,7 +13,7 @@ from train_config import config as cfg
 import sklearn.metrics
 from lib.utils.logger import logger
 from lib.core.model.loss.focal_loss import FocalLoss,FocalLoss4d
-from lib.core.base_trainer.model import Net
+from lib.core.base_trainer.model import  EncoderDecodertrain18
 
 import random
 from lib.core.model.loss.labelsmooth import LabelSmoothing
@@ -53,7 +53,23 @@ class Train(object):
     self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
 
-    self.model = Net().to(self.device)
+
+
+    embed_size = 200
+    vocab_size = 41  ##len(vocab)
+    attention_dim = 300
+    encoder_dim = 512
+    decoder_dim = 300
+
+    self.model = EncoderDecodertrain18(
+        embed_size=embed_size,
+        vocab_size=vocab_size,
+        attention_dim=attention_dim,
+        encoder_dim=encoder_dim,
+        decoder_dim=decoder_dim
+    ).to(self.device)
+
+
 
     self.load_weight()
 
@@ -166,7 +182,7 @@ class Train(object):
         else:
             output, seg = self.model(data)
 
-            current_loss = self.criterion(output, target)+self.seg_loss(seg,mask,mask_weight)
+            current_loss = self.criterion(output, target)#+self.seg_loss(seg,mask,mask_weight)
 
         summary_loss.update(current_loss.detach().item(), batch_size)
         rocauc_score.update(target,output)
