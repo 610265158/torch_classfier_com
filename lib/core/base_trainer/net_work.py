@@ -181,8 +181,7 @@ class Train(object):
         else:
             output, alpha = self.model(data,target)
             output=output.permute(0,2,1)
-            print(output.size())
-            print(target.size())
+
             current_loss = self.criterion(output, target[:,:-1])
 
         summary_loss.update(current_loss.detach().item(), batch_size)
