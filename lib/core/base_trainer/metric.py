@@ -44,7 +44,9 @@ class DISTANCEMeter(object):
     def update(self, y_true, y_pred):
 
         for i in range(y_true.shape[0]):
+
             cur_score=editdistance.eval(y_true[i],y_pred[i])
+            
             self.score+=cur_score
 
         self.num_sampl+=y_true.shape[0]

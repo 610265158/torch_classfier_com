@@ -4,9 +4,10 @@ import sklearn.metrics
 import cv2
 import time
 import os
-
+import pandas as pd
 
 from lib.core.utils.torch_utils import EMA
+from lib.dataset.dataietr import WordUtil
 from train_config import config as cfg
 #from lib.dataset.dataietr import DataIter
 
@@ -51,8 +52,8 @@ class Train(object):
 
     self.accumulation_step=cfg.TRAIN.accumulation_batch_size//cfg.TRAIN.batch_size
     self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-
-
+    self.word_tool = WordUtil(pd.read_csv(cfg.DATA.data_file))
+    self.train_generate_length=cfg.MODEL.train_length
 
 
     embed_size = 200
@@ -94,7 +95,7 @@ class Train(object):
         self.model, self.optimizer = amp.initialize( self.model, self.optimizer, opt_level="O1")
 
 
-    self.model=nn.DataParallel(self.model)
+    # self.model=nn.DataParallel(self.model)
 
     self.ema = EMA(self.model, 0.97)
 
@@ -228,8 +229,8 @@ class Train(object):
 
       return summary_loss
     def distributed_test_epoch(epoch_num):
-        summary_loss = AverageMeter()
 
+        L_distance_meter=DISTANCEMeter()
 
         self.model.eval()
         t = time.time()
@@ -240,32 +241,35 @@ class Train(object):
                 target = target.to(self.device).long()
                 batch_size = data.shape[0]
 
+                encodeed_feature = self.model.encoder(data)
 
-                output, alpha = self.model(data)
+                caps = self.model.decoder.generate_caption(encodeed_feature,
+                                                           max_len=self.train_generate_length,
+                                                           stoi=self.word_tool.stoi,
+                                                           itos=self.word_tool.itos)
 
-                loss = self.criterion_val(output, target)
-
-                summary_loss.update(loss.detach().item(), batch_size)
+                L_distance_meter.update(target[:,:-1].detach().cpu().numpy(),
+                                        caps.detach().cpu().numpy())
 
 
                 if step % cfg.TRAIN.log_interval == 0:
 
                     log_message = '[fold %d], '\
                                   'Val Step %d, ' \
-                                  'summary_loss: %.6f, ' \
+                                  'L_distance: %.6f, ' \
                                   'time: %.6f' % (
                                   self.fold,step,
-                                  summary_loss.avg,
+                                  L_distance_meter.avg,
                                   time.time() - t)
 
                     logger.info(log_message)
 
-        return summary_loss
+        return L_distance_meter
 
 
 
 
-    best_roc_auc=0.
+    best_distance=1000.
     not_improvement=0
     for epoch in range(self.epochs):
 
@@ -296,15 +300,15 @@ class Train(object):
 
       if epoch%cfg.TRAIN.test_interval==0:
 
-          summary_loss = distributed_test_epoch(epoch)
+          distance_meter = distributed_test_epoch(epoch)
 
           val_epoch_log_message = '[fold %d], '\
                                   '[RESULT]: VAL. Epoch: %d,' \
-                                  ' summary_loss: %.5f,' \
+                                  ' L_distance: %.5f,' \
                                   ' time:%.5f' % (
                                    self.fold,
                                    epoch,
-                                   summary_loss.avg,
+                                   distance_meter.avg,
                                    (time.time() - t))
           logger.info(val_epoch_log_message)
 
@@ -317,13 +321,12 @@ class Train(object):
       ###save the best auc model
 
       #### save the model every end of epoch
-      current_model_saved_name='./models/fold%d_epoch_%d_val_loss_%.6f_rocauc_%.6f.pth'%(self.fold,
+      current_model_saved_name='./models/fold%d_epoch_%d_val_dis_%.6f.pth'%(self.fold,
                                                                                          epoch,
-                                                                                         summary_loss.avg,
-                                                                                         cur_roc_auc_score)
+                                                                                         distance_meter.avg)
 
       logger.info('A model saved to %s' % current_model_saved_name)
-      torch.save(self.model.module.state_dict(),current_model_saved_name)
+      torch.save(self.model.state_dict(),current_model_saved_name)
 
       ####switch back
       if cfg.MODEL.ema:
@@ -337,9 +340,9 @@ class Train(object):
           ###switch back to plain model to train next epoch
           self.optimizer.swap_swa_sgd()
 
-      if cur_roc_auc_score>best_roc_auc:
-          best_roc_auc=cur_roc_auc_score
-          logger.info(' best metric score update as %.6f' % (best_roc_auc))
+      if distance_meter.avg<best_distance:
+          best_distance=distance_meter.avg
+          logger.info(' best metric score update as %.6f' % (best_distance))
       else:
           not_improvement+=1
 
