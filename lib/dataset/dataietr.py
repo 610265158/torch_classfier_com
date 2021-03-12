@@ -250,7 +250,7 @@ class AlaskaDataIter():
         label = dp['InChI']
 
 
-        label_padding=np.zeros(shape=[202])+self.word_tool.stoi['<pad>']
+        label_padding=np.zeros(shape=[cfg.MODEL.train_length])+self.word_tool.stoi['<pad>']
         try:
 
             image_raw = cv2.imread(fname,-1)
@@ -267,7 +267,8 @@ class AlaskaDataIter():
                 image = transformed['image']
 
             label=self.word_tool.string_to_ints(label)
-
+            if len(label)>cfg.MODEL.train_length:
+                label=label[:cfg.MODEL.train_length]
             label_padding[:len(label)]=label
         except:
             print(traceback.print_exc())

@@ -59,7 +59,7 @@ config.MODEL.fmix=0.0
 config.MODEL.mixup=0.0
 config.MODEL.gempool=False
 config.MODEL.early_stop=10
-
+config.MODEL.train_length=100
 config.MODEL.pretrained_model=None
 
 config.MODEL.num_class=11
