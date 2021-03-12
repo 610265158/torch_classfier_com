@@ -70,6 +70,7 @@ class DecoderRNN(nn.Module):
         preds = torch.zeros(batch_size, seq_length, self.vocab_size).to(device)
         alphas = torch.zeros(batch_size, seq_length, num_features).to(device)
 
+        print(preds.shape)
         for s in range(seq_length):
             alpha, context = self.attention(features, h)
             lstm_input = torch.cat((embeds[:, s], context), dim=1)
@@ -80,6 +81,7 @@ class DecoderRNN(nn.Module):
             preds[:, s] = output
             alphas[:, s] = alpha
 
+        print(preds.shape)
         return preds, alphas
 
     def generate_caption(self, features, max_len=200, itos=None, stoi=None):
