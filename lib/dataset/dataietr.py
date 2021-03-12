@@ -67,7 +67,7 @@ class AlaskaDataIter():
         self.shuffle = shuffle
 
         self.df=df
-
+        logger.info('contains %d samples'%len(self.df))
         self.word_tool=WordUtil(df)
 
 
@@ -77,11 +77,11 @@ class AlaskaDataIter():
                                                         width=cfg.MODEL.width,
                                                         scale=[0.9,1.]
                                                         ),
-                                    A.HorizontalFlip(p=0.5),
+
                                     A.ShiftScaleRotate(p=0.5,
-                                                       shift_limit=0.2,
-                                                       scale_limit=0.2,
-                                                       rotate_limit=20,
+                                                       shift_limit=0.1,
+                                                       scale_limit=0.1,
+                                                       rotate_limit=15,
                                                        border_mode=cv2.BORDER_CONSTANT),
 
                                     A.RandomBrightnessContrast(brightness_limit=(0.2), contrast_limit=(0.2),
