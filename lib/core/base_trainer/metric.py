@@ -1,6 +1,4 @@
-import sklearn
-from sklearn import metrics
-from sklearn.metrics import confusion_matrix
+import editdistance
 
 import numpy as np
 import torch.nn as nn
@@ -33,40 +31,33 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-class ROCAUCMeter(object):
+class DISTANCEMeter(object):
     def __init__(self):
         self.reset()
 
     def reset(self):
 
-        self.y_true_11=None
-        self.y_pred_11 = None
-
+        self.y_true = None
+        self.y_pred = None
+        self.score=0
+        self.num_sampl=0
     def update(self, y_true, y_pred):
-        y_true = y_true.cpu().numpy()
 
-        y_pred = torch.sigmoid(y_pred).cpu().numpy()
+        for i in range(y_true.shape[0]):
+            cur_score=editdistance.eval(y_true[i],y_pred[i])
+            self.score+=cur_score
 
-
-
-        if self.y_true_11 is None:
-            self.y_true_11 = y_true
-            self.y_pred_11 = y_pred
-        else:
-            self.y_true_11 = np.concatenate((self.y_true_11, y_true),axis=0)
-            self.y_pred_11 = np.concatenate((self.y_pred_11, y_pred),axis=0)
+        self.num_sampl+=y_true.shape[0]
 
 
     @property
     def avg(self):
 
-        aucs = []
-        for i in range(11):
-            aucs.append(roc_auc_score(self.y_true_11[:,i], self.y_pred_11[:, i]))
-        print(np.round(aucs, 4))
+
+
 
         
-        return np.mean(aucs)
+        return self.score/self.num_sampl
 
 
 
