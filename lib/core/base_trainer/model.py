@@ -81,7 +81,7 @@ class DecoderRNN(nn.Module):
             preds[:, s] = output
             alphas[:, s] = alpha
 
-        
+
         return preds, alphas
 
     def generate_caption(self, features, max_len=200, itos=None, stoi=None):
@@ -98,12 +98,12 @@ class DecoderRNN(nn.Module):
         word = torch.full((batch_size, 1), stoi['<sos>']).to(device).long()
 
         embeds = self.embedding(word)
-        print(embeds.size())
+
         # captions = []
-        captions = torch.zeros((batch_size, 202), dtype=torch.long).to(device)
+        captions = torch.zeros((batch_size, max_len), dtype=torch.long).to(device)
         captions[:, 0] = word.squeeze()
 
-        for i in range(202):
+        for i in range(max_len):
             alpha, context = self.attention(features, h)
 
             # store the apla score
@@ -114,7 +114,7 @@ class DecoderRNN(nn.Module):
             lstm_input = torch.cat((embeds[:, 0], context), dim=1)
             h, c = self.lstm_cell(lstm_input, (h, c))
             output = self.fcn(self.drop(h))
-            # print('output',output.shape)
+
             output = output.view(batch_size, -1)
 
             # select the word with most val
@@ -135,6 +135,7 @@ class DecoderRNN(nn.Module):
 
         # covert the vocab idx to words and return sentence
         # return [itos[idx] for idx in captions]
+        print(captions)
         return captions
 
     def init_hidden_state(self, encoder_out):
@@ -147,7 +148,7 @@ class DecoderRNN(nn.Module):
 class EncoderCNNtrain18(nn.Module):
     def __init__(self):
         super(EncoderCNNtrain18, self).__init__()
-        resnet = torchvision.models.resnet18()
+        resnet = torchvision.models.resnet18(pretrained=True)
         # for param in resnet.parameters():
         #    param.requires_grad_(False)
 
@@ -175,6 +176,7 @@ class EncoderDecodertrain18(nn.Module):
         )
 
     def forward(self, images, captions):
+        images=images/255.
         features = self.encoder(images)
         outputs = self.decoder(features, captions)
         return outputs
