@@ -135,7 +135,7 @@ class DecoderRNN(nn.Module):
 
         # covert the vocab idx to words and return sentence
         # return [itos[idx] for idx in captions]
-        print(captions)
+
         return captions
 
     def init_hidden_state(self, encoder_out):
