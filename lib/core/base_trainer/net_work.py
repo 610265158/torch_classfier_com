@@ -5,8 +5,10 @@ import cv2
 import time
 import os
 import pandas as pd
+from torch.utils.data import DataLoader
 
 from lib.core.utils.torch_utils import EMA
+from lib.dataset.dataietr import AlaskaDataIter
 
 from train_config import config as cfg
 #from lib.dataset.dataietr import DataIter
@@ -40,10 +42,25 @@ class Train(object):
   """
 
   def __init__(self,
-               train_ds,
-               val_ds,
+               train_df,
+               val_df,
                fold,
                tokenizer):
+
+    self.train_generator = AlaskaDataIter(train_df, tokenizer, training_flag=True, shuffle=False)
+    self.train_ds = DataLoader(self.train_generator,
+                            cfg.TRAIN.batch_size,
+                            num_workers=cfg.TRAIN.process_num,
+                            shuffle=True)
+
+    self.val_generator = AlaskaDataIter(val_df, tokenizer, training_flag=False, shuffle=False)
+    self.val_ds = DataLoader(self.val_generator,
+                           cfg.TRAIN.batch_size,
+                           num_workers=cfg.TRAIN.process_num,
+                           shuffle=False)
+
+
+
     self.fold=fold
 
     self.init_lr=cfg.TRAIN.init_lr
@@ -107,9 +124,6 @@ class Train(object):
     ###control vars
     self.iter_num=0
 
-    self.train_ds=train_ds
-
-    self.val_ds = val_ds
 
     # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,mode='max', patience=5,
     #                                                             min_lr=1e-6,factor=0.5,verbose=True)
@@ -237,11 +251,13 @@ class Train(object):
 
                 predictions = self.model.predict(data)
                 predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
+                print(predicted_sequence.shape)
                 _text_preds = self.word_tool.predict_captions(predicted_sequence)
-                text_preds.append(_text_preds)
+                text_preds+=_text_preds
 
         text_preds = [f"InChI=1S/{text}" for text in text_preds]
-        L_distance_meter.update(self.val_ds.df['InChI'].values,
+        
+        L_distance_meter.update(self.val_generator.df['InChI'].values,
                                 text_preds)
 
 

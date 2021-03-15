@@ -8,6 +8,9 @@ import torch.nn.functional as F
 import  numpy as np
 
 # model adapted from https://www.kaggle.com/mdteach/image-captioning-with-attention-pytorch/data
+
+
+
 class Encoder(nn.Module):
     def __init__(self, model_name='resnet18', pretrained=False):
         super().__init__()
@@ -187,25 +190,42 @@ class Caption(nn.Module):
     def predict(self,images):
         features = self.encoder(images)
         predictions = self.decoder.predict(features, self.max_length, self.token)
-        predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
-        _text_preds = self.token.predict_captions(predicted_sequence)
-        return _text_preds
+
+        return predictions
 
 
 if __name__=='__main__':
-    dummy_input = torch.randn(1, 3, 256, 256, device='cpu')
-    embed_size = 200
-    vocab_size = 41  ##len(vocab)
+    dummy_input = torch.randn(2, 3, 256, 256, device='cpu')
+    embed_dim = 200
+    vocab_size = 193  ##len(vocab)
     attention_dim = 300
     encoder_dim = 512
     decoder_dim = 300
+    import sys
+    sys.path.append('.')
+    from make_data import Tokenizer
 
-    model = EncoderDecodertrain18(
-        embed_size=embed_size,
+    def get_token():
+        token_tools = Tokenizer()
+        token_tools.stoi = np.load("../tokenizer.stio.npy", allow_pickle=True).item()
+        token_tools.itos = np.load("../tokenizer.itos.npy", allow_pickle=True).item()
+
+        return token_tools
+
+
+    token_tools = get_token()
+    device=torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+
+    model = Caption(
+        embed_dim=embed_dim,
         vocab_size=vocab_size,
         attention_dim=attention_dim,
         encoder_dim=encoder_dim,
-        decoder_dim=decoder_dim
+        decoder_dim=decoder_dim,
+        dropout=0.5,
+        tokenizer=token_tools,
+        max_length=275
+
     ).to(device)
 
     ### load your weights
@@ -213,17 +233,10 @@ if __name__=='__main__':
 
     import sys
 
-    sys.path.append('.')
-    from lib.dataset.dataietr import WordUtil
-    import pandas as pd
+    predictions = model.predict(dummy_input)
+    predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
+    print(predicted_sequence.shape)
+    _text_preds = token_tools.predict_captions(predicted_sequence)
+    print(_text_preds)
 
-    word_tool=WordUtil(pd.read_csv('train_labels.csv'))
-
-
-
-    features = model.encoder(dummy_input)
-    print(features.size())
-    caps = model.decoder.generate_caption(features, stoi=word_tool.stoi, itos=word_tool.itos)
-
-    print(caps.size())
 
