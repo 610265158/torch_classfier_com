@@ -251,12 +251,12 @@ class Train(object):
 
                 predictions = self.model.predict(data)
                 predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
-                print(predicted_sequence.shape)
+                
                 _text_preds = self.word_tool.predict_captions(predicted_sequence)
                 text_preds+=_text_preds
 
         text_preds = [f"InChI=1S/{text}" for text in text_preds]
-        
+
         L_distance_meter.update(self.val_generator.df['InChI'].values,
                                 text_preds)
 
