@@ -1,98 +1,156 @@
-import pandas
+# ====================================================
+# Library
+# ====================================================
+from train_config import config as cfg
+import os
+import re
 import numpy as np
 import pandas as pd
-import os
-from sklearn.cluster import KMeans
-from tqdm import tqdm
-from sklearn.preprocessing import LabelEncoder
-from collections import Counter, defaultdict
-from sklearn.utils import check_random_state
+from tqdm.auto import tqdm
 
-class RepeatedStratifiedGroupKFold():
+tqdm.pandas()
+import torch
 
-    def __init__(self, n_splits=5, n_repeats=1, random_state=None):
-        self.n_splits = n_splits
-        self.n_repeats = n_repeats
-        self.random_state = random_state
-
-    def split(self, X, y=None, groups=None):
-        k = self.n_splits
-
-        def eval_y_counts_per_fold(y_counts, fold):
-            y_counts_per_fold[fold] += y_counts
-            std_per_label = []
-            for label in range(labels_num):
-                label_std = np.std(
-                    [y_counts_per_fold[i][label] / y_distr[label] for i in range(k)]
-                )
-                std_per_label.append(label_std)
-            y_counts_per_fold[fold] -= y_counts
-            return np.mean(std_per_label)
-
-        rnd = check_random_state(self.random_state)
-        for repeat in range(self.n_repeats):
-            labels_num = np.max(y) + 1
-            y_counts_per_group = defaultdict(lambda: np.zeros(labels_num))
-            y_distr = Counter()
-            for label, g in zip(y, groups):
-                y_counts_per_group[g][label] += 1
-                y_distr[label] += 1
-
-            y_counts_per_fold = defaultdict(lambda: np.zeros(labels_num))
-            groups_per_fold = defaultdict(set)
-
-            groups_and_y_counts = list(y_counts_per_group.items())
-            rnd.shuffle(groups_and_y_counts)
-
-            for g, y_counts in sorted(groups_and_y_counts, key=lambda x: -np.std(x[1])):
-                best_fold = None
-                min_eval = None
-                for i in range(k):
-                    fold_eval = eval_y_counts_per_fold(y_counts, i)
-                    if min_eval is None or fold_eval < min_eval:
-                        min_eval = fold_eval
-                        best_fold = i
-                y_counts_per_fold[best_fold] += y_counts
-                groups_per_fold[best_fold].add(g)
-
-            all_groups = set(groups)
-            for i in range(k):
-                train_groups = all_groups - groups_per_fold[i]
-                test_groups = groups_per_fold[i]
-
-                train_indices = [i for i, g in enumerate(groups) if g in train_groups]
-                test_indices = [i for i, g in enumerate(groups) if g in test_groups]
-
-                yield train_indices, test_indices
+# ====================================================
+# Data Loading
+# ====================================================
+train = pd.read_csv(cfg.DATA.data_file)
+print(f'train.shape: {train.shape}')
 
 
+# ====================================================
+# Preprocess functions
+# ====================================================
+def split_form(form):
+    string = ''
+    for i in re.findall(r"[A-Z][^A-Z]*", form):
+        elem = re.match(r"\D+", i).group()
+        num = i.replace(elem, "")
+        if num == "":
+            string += f"{elem} "
+        else:
+            string += f"{elem} {str(num)} "
+    return string.rstrip(' ')
 
 
-nfold=5
-train = pd.read_csv('../train.csv')
-train.head()
+def split_form2(form):
+    string = ''
+    for i in re.findall(r"[a-z][^a-z]*", form):
+        elem = i[0]
+        num = i.replace(elem, "").replace('/', "")
+        num_string = ''
+        for j in re.findall(r"[0-9]+[^0-9]*", num):
+            num_list = list(re.findall(r'\d+', j))
+            assert len(num_list) == 1, f"len(num_list) != 1"
+            _num = num_list[0]
+            if j == _num:
+                num_string += f"{_num} "
+            else:
+                extra = j.replace(_num, "")
+                num_string += f"{_num} {' '.join(list(extra))} "
+        string += f"/{elem} {num_string}"
+    return string.rstrip(' ')
+
+
+# ====================================================
+# Tokenizer
+# ====================================================
+class Tokenizer(object):
+
+    def __init__(self):
+        self.stoi = {}
+        self.itos = {}
+
+    def __len__(self):
+        return len(self.stoi)
+
+    def fit_on_texts(self, texts):
+        vocab = set()
+        for text in texts:
+            vocab.update(text.split(' '))
+        vocab = sorted(vocab)
+        vocab.append('<sos>')
+        vocab.append('<eos>')
+        vocab.append('<pad>')
+        for i, s in enumerate(vocab):
+            self.stoi[s] = i
+        self.itos = {item[1]: item[0] for item in self.stoi.items()}
+
+    def text_to_sequence(self, text):
+        sequence = []
+        sequence.append(self.stoi['<sos>'])
+        for s in text.split(' '):
+            sequence.append(self.stoi[s])
+        sequence.append(self.stoi['<eos>'])
+        return sequence
+
+    def texts_to_sequences(self, texts):
+        sequences = []
+        for text in texts:
+            sequence = self.text_to_sequence(text)
+            sequences.append(sequence)
+        return sequences
+
+    def sequence_to_text(self, sequence):
+        return ''.join(list(map(lambda i: self.itos[i], sequence)))
+
+    def sequences_to_texts(self, sequences):
+        texts = []
+        for sequence in sequences:
+            text = self.sequence_to_text(sequence)
+            texts.append(text)
+        return texts
+
+    def predict_caption(self, sequence):
+        caption = ''
+        for i in sequence:
+            if i == self.stoi['<eos>'] or i == self.stoi['<pad>']:
+                break
+            caption += self.itos[i]
+        return caption
+
+    def predict_captions(self, sequences):
+        captions = []
+        for sequence in sequences:
+            caption = self.predict_caption(sequence)
+            captions.append(caption)
+        return captions
 
 
 
-# let's first concat all the labels
-# e.g 00000000010
-target_cols = train.drop(['StudyInstanceUID', 'PatientID'],axis=1).columns.values.tolist()
-targets = train[target_cols].astype(str)
-# create a new col to store the label
-train['combined_tar'] = ''
-for i in tqdm(range(targets.shape[1])):
-    train['combined_tar'] += targets.iloc[:,i]
-# take a look at it
-train.combined_tar.value_counts()
+# ====================================================
+# main
+# ====================================================
+def main():
+    # ====================================================
+    # preprocess train.csv
+    # ====================================================
+    train['InChI_1'] = train['InChI'].progress_apply(lambda x: x.split('/')[1])
+    train['InChI_text'] = train['InChI_1'].progress_apply(split_form) + ' ' + \
+                            train['InChI'].apply(lambda x: '/'.join(x.split('/')[2:])).progress_apply(split_form2).values
+    # ====================================================
+    # create tokenizer
+    # ====================================================
+    tokenizer = Tokenizer()
+    tokenizer.fit_on_texts(train['InChI_text'].values)
+    np.save("../tokenizer.stio.npy", tokenizer.stoi)
+    np.save("../tokenizer.itos.npy", tokenizer.itos)
 
-train['combined_tar'] = LabelEncoder().fit_transform(train['combined_tar'])
+    print('Saved tokenizer dict')
+    # ====================================================
+    # preprocess train.csv
+    # ====================================================
+    lengths = []
+    tk0 = tqdm(train['InChI_text'].values, total=len(train))
+    for text in tk0:
+        seq = tokenizer.text_to_sequence(text)
+        length = len(seq) - 2
+        lengths.append(length)
+    train['InChI_length'] = lengths
+    print(train.head())
+    train.to_csv('../train2.csv')
+    print('Saved preprocessed train.pkl')
 
 
-
-
-train['fold'] = -1
-rskf = RepeatedStratifiedGroupKFold(n_splits=nfold, random_state=42)
-for i, (train_idx, valid_idx) in enumerate(rskf.split(train, train.combined_tar, train.PatientID)): #(df, targets, group)
-    train.loc[valid_idx, 'fold'] = int(i)
-
-train.drop('combined_tar', axis=1).to_csv('train_folds.csv', index=False)
+if __name__ == '__main__':
+    main()

@@ -1,3 +1,4 @@
+import torch
 
 from lib.core.base_trainer.net_work import Train
 from lib.dataset.dataietr import AlaskaDataIter
@@ -8,7 +9,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold,KFold
 
 from train_config import config as cfg
-
+from make_data import Tokenizer
 import setproctitle
 
 
@@ -16,34 +17,49 @@ setproctitle.setproctitle("comp")
 
 
 def main():
-    n_fold=5
 
-    data=pd.read_csv(cfg.DATA.data_file)
+    def get_folds(n_fold = 5):
+        data = pd.read_csv('../train2.csv')
 
-    def get_train_file_path(image_id):
-        return cfg.DATA.data_root_path+"/{}/{}/{}/{}.png".format(
-            image_id[0], image_id[1], image_id[2], image_id
-        )
-
-
-    data['file_path'] = data['image_id'].apply(get_train_file_path)
-
-    n_fold = 5
-
-    def split(data,n_fold=5):
+        def get_train_file_path(image_id):
+            return cfg.DATA.data_root_path+"/{}/{}/{}/{}.png".format(
+                image_id[0], image_id[1], image_id[2], image_id
+            )
 
 
-        data['fold'] = -1
-        Fold = KFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
+        data['file_path'] = data['image_id'].apply(get_train_file_path)
 
-        for fold, (train_index, test_index) in enumerate(Fold.split(data)):
-            data['fold'][test_index] = fold
 
+
+        def split(train, n_fold=5):
+
+
+            folds = train.copy()
+            Fold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
+            for n, (train_index, val_index) in enumerate(Fold.split(folds, folds['InChI_length'])):
+                folds.loc[val_index, 'fold'] = int(n)
+            folds['fold'] = folds['fold'].astype(int)
+            print(folds.groupby(['fold']).size())
+
+
+
+
+            return  folds
+
+
+        data = split(data,n_fold)
         return data
+    n_fold = 5
+    data=get_folds()
 
-    data = split(data,n_fold)
+    def get_token():
+        token_tools=Tokenizer()
+        token_tools.stoi=np.load("../tokenizer.stio.npy", allow_pickle=True).item()
+        token_tools.itos = np.load("../tokenizer.itos.npy", allow_pickle=True).item()
 
+        return token_tools
 
+    token_tools=get_token()
 
     for fold in range(n_fold):
         ###build dataset
@@ -54,20 +70,23 @@ def main():
         val_data = data.iloc[val_ind].copy()
 
 
-        trainds=AlaskaDataIter(train_data,training_flag=True,shuffle=False)
+        trainds=AlaskaDataIter(train_data,token_tools,training_flag=True,shuffle=False)
         train_ds = DataLoader(trainds,
                               cfg.TRAIN.batch_size,
                               num_workers=cfg.TRAIN.process_num,
                               shuffle=True)
 
-        valds = AlaskaDataIter(val_data,training_flag=False,shuffle=False)
+        valds = AlaskaDataIter(val_data,token_tools,training_flag=False,shuffle=False)
         test_ds = DataLoader(valds,
                              cfg.TRAIN.batch_size,
                              num_workers=cfg.TRAIN.process_num,
                              shuffle=False)
 
         ###build trainer
-        trainer = Train(train_ds=train_ds,val_ds=test_ds,fold=fold)
+        trainer = Train(train_ds=train_ds,
+                        val_ds=test_ds,
+                        fold=fold,
+                        tokenizer=token_tools)
 
         print('it is here')
         if cfg.TRAIN.vis:

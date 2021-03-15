@@ -7,14 +7,14 @@ import os
 import pandas as pd
 
 from lib.core.utils.torch_utils import EMA
-from lib.dataset.dataietr import WordUtil
+
 from train_config import config as cfg
 #from lib.dataset.dataietr import DataIter
 
 import sklearn.metrics
 from lib.utils.logger import logger
 from lib.core.model.loss.focal_loss import FocalLoss,FocalLoss4d
-from lib.core.base_trainer.model import  EncoderDecodertrain18
+from lib.core.base_trainer.model import  Encoder,DecoderWithAttention
 
 import random
 from lib.core.model.loss.labelsmooth import LabelSmoothing
@@ -29,7 +29,7 @@ from torchcontrib.optim import SWA
 
 
 from lib.core.model.mix.mix import cutmix,cutmix_criterion,mixup,mixup_criterion
-from lib.core.model.loss.dice_loss import DiceLoss
+from lib.core.base_trainer.model import Caption
 
 
 if cfg.TRAIN.mix_precision:
@@ -39,7 +39,11 @@ class Train(object):
   """Train class.
   """
 
-  def __init__(self,train_ds,val_ds,fold):
+  def __init__(self,
+               train_ds,
+               val_ds,
+               fold,
+               tokenizer):
     self.fold=fold
 
     self.init_lr=cfg.TRAIN.init_lr
@@ -52,24 +56,24 @@ class Train(object):
 
     self.accumulation_step=cfg.TRAIN.accumulation_batch_size//cfg.TRAIN.batch_size
     self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-    self.word_tool = WordUtil(pd.read_csv(cfg.DATA.data_file))
+    self.word_tool = tokenizer
     self.train_generate_length=cfg.MODEL.train_length
 
 
-    embed_size = 200
-    vocab_size = 41  ##len(vocab)
+    embed_dim = 200
+
     attention_dim = 300
     encoder_dim = 512
     decoder_dim = 300
 
-    self.model = EncoderDecodertrain18(
-        embed_size=embed_size,
-        vocab_size=vocab_size,
-        attention_dim=attention_dim,
-        encoder_dim=encoder_dim,
-        decoder_dim=decoder_dim
-    ).to(self.device)
-
+    self.model=Caption(embed_dim=embed_dim,
+                       vocab_size=len(self.word_tool),
+                       attention_dim=attention_dim,
+                       encoder_dim=encoder_dim,
+                       decoder_dim=decoder_dim,
+                       dropout=0.5,
+                       max_length=cfg.MODEL.train_length,
+                       tokenizer=self.word_tool)
 
 
     self.load_weight()
@@ -146,7 +150,7 @@ class Train(object):
 
 
 
-      for images, target in self.train_ds:
+      for images, label,label_length in self.train_ds:
 
         if epoch_num<10:
             ###excute warm up in the first epoch
@@ -162,28 +166,16 @@ class Train(object):
 
 
         data = images.to(self.device).float()
-        target = target.to(self.device).long()
+        label = label.to(self.device).long()
+        label_length = label_length.to(self.device).long()
 
 
         batch_size = data.shape[0]
 
-        rand_dice=random.uniform(0,1)
-        if rand_dice<cfg.MODEL.mixup:
-            mixued_data,mixued_target=mixup(data,target,0.5)
+        predictions, caps_sorted, decode_lengths, alphas, sort_ind = self.model(data,label,label_length)
 
-            output = self.model(mixued_data)
-            current_loss = mixup_criterion(output, mixued_target,self.criterion)
-        elif rand_dice>cfg.MODEL.mixup and rand_dice<cfg.MODEL.mixup+cfg.MODEL.fmix:
-            mixued_data = self.fmix(data)
-
-            output = self.model(mixued_data)
-            current_loss = self.fmix.loss(output, target)
-
-        else:
-            output, alpha = self.model(data,target)
-            output=output.permute(0,2,1)
-
-            current_loss = self.criterion(output, target[:,:-1])
+        targets = caps_sorted[:, 1:]
+        current_loss = self.criterion(predictions, targets[:,1:])
 
         summary_loss.update(current_loss.detach().item(), batch_size)
 
@@ -234,35 +226,25 @@ class Train(object):
 
         self.model.eval()
         t = time.time()
+
+        text_preds = []
         with torch.no_grad():
-            for step,(images, target) in enumerate(self.val_ds):
+            for step,(images) in enumerate(self.val_ds):
 
                 data = images.to(self.device).float()
-                target = target.to(self.device).long()
+
                 batch_size = data.shape[0]
 
-                encodeed_feature = self.model.encoder(data)
+                predictions = self.model.predict(data)
+                predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
+                _text_preds = self.word_tool.predict_captions(predicted_sequence)
+                text_preds.append(_text_preds)
 
-                caps = self.model.decoder.generate_caption(encodeed_feature,
-                                                           max_len=self.train_generate_length,
-                                                           stoi=self.word_tool.stoi,
-                                                           itos=self.word_tool.itos)
-
-                L_distance_meter.update(target[:,:-1].detach().cpu().numpy(),
-                                        caps.detach().cpu().numpy())
+        text_preds = [f"InChI=1S/{text}" for text in text_preds]
+        L_distance_meter.update(self.val_ds.df['InChI'].values,
+                                text_preds)
 
 
-                if step % cfg.TRAIN.log_interval == 0:
-
-                    log_message = '[fold %d], '\
-                                  'Val Step %d, ' \
-                                  'L_distance: %.6f, ' \
-                                  'time: %.6f' % (
-                                  self.fold,step,
-                                  L_distance_meter.avg,
-                                  time.time() - t)
-
-                    logger.info(log_message)
 
         return L_distance_meter
 

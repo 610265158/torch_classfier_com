@@ -45,6 +45,7 @@ config.MODEL.channel = 3
 config.DATA = edict()
 
 config.DATA.data_file='train_labels.csv'
+
 config.DATA.data_root_path='/Users/liangzi/Downloads/train'
 ############the model is trained with RGB mode
 config.DATA.PIXEL_MEAN = np.array([ 0.460, 0.442 ,0.390 ]).reshape(1,3,1,1)           ###rgb
@@ -59,7 +60,7 @@ config.MODEL.fmix=0.0
 config.MODEL.mixup=0.0
 config.MODEL.gempool=False
 config.MODEL.early_stop=10
-config.MODEL.train_length=100
+config.MODEL.train_length=275
 config.MODEL.pretrained_model=None
 
 config.MODEL.num_class=11

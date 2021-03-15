@@ -1,142 +1,97 @@
 
 import torch
 import torch.nn as nn
-
+import timm
 import torchvision
 import torch.nn.functional as F
-device=torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+
+import  numpy as np
+
 # model adapted from https://www.kaggle.com/mdteach/image-captioning-with-attention-pytorch/data
-class Attention(nn.Module):
-    def __init__(self, encoder_dim, decoder_dim, attention_dim):
-        super(Attention, self).__init__()
-
-        self.attention_dim = attention_dim
-
-        self.W = nn.Linear(decoder_dim, attention_dim)
-        self.U = nn.Linear(encoder_dim, attention_dim)
-
-        self.A = nn.Linear(attention_dim, 1)
-
-    def forward(self, features, hidden_state):
-        u_hs = self.U(features)  # (batch_size,64,attention_dim)
-        w_ah = self.W(hidden_state)  # (batch_size,attention_dim)
-
-        combined_states = torch.tanh(u_hs + w_ah.unsqueeze(1))  # (batch_size,64,attemtion_dim)
-
-        attention_scores = self.A(combined_states)  # (batch_size,64,1)
-        attention_scores = attention_scores.squeeze(2)  # (batch_size,64)
-
-        alpha = F.softmax(attention_scores, dim=1)  # (batch_size,64)
-
-        attention_weights = features * alpha.unsqueeze(2)  # (batch_size,64,features_dim)
-        attention_weights = attention_weights.sum(dim=1)  # (batch_size,64)
-
-        return alpha, attention_weights
-
-
-class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, vocab_size, attention_dim, encoder_dim, decoder_dim, drop_prob=0.3):
+class Encoder(nn.Module):
+    def __init__(self, model_name='resnet18', pretrained=False):
         super().__init__()
+        self.cnn = timm.create_model(model_name, pretrained=pretrained)
+        self.n_features = self.cnn.fc.in_features
+        self.cnn.global_pool = nn.Identity()
+        self.cnn.fc = nn.Identity()
 
-        # save the model param
-        self.vocab_size = vocab_size
+    def forward(self, x):
+        bs = x.size(0)
+        x=x/255.
+        features = self.cnn(x)
+        features = features.permute(0, 2, 3, 1)
+        return features
+class Attention(nn.Module):
+    """
+    Attention network for calculate attention value
+    """
+    def __init__(self, encoder_dim, decoder_dim, attention_dim):
+        """
+        :param encoder_dim: input size of encoder network
+        :param decoder_dim: input size of decoder network
+        :param attention_dim: input size of attention network
+        """
+        super(Attention, self).__init__()
+        self.encoder_att = nn.Linear(encoder_dim, attention_dim)  # linear layer to transform encoded image
+        self.decoder_att = nn.Linear(decoder_dim, attention_dim)  # linear layer to transform decoder's output
+        self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
+        self.relu = nn.ReLU()
+        self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
+
+    def forward(self, encoder_out, decoder_hidden):
+        att1 = self.encoder_att(encoder_out)  # (batch_size, num_pixels, attention_dim)
+        att2 = self.decoder_att(decoder_hidden)  # (batch_size, attention_dim)
+        att = self.full_att(self.relu(att1 + att2.unsqueeze(1))).squeeze(2)  # (batch_size, num_pixels)
+        alpha = self.softmax(att)  # (batch_size, num_pixels)
+        attention_weighted_encoding = (encoder_out * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
+        return attention_weighted_encoding, alpha
+
+
+class DecoderWithAttention(nn.Module):
+    """
+    Decoder network with attention network used for training
+    """
+
+    def __init__(self, attention_dim, embed_dim, decoder_dim, vocab_size, device, encoder_dim=512, dropout=0.5):
+        """
+        :param attention_dim: input size of attention network
+        :param embed_dim: input size of embedding network
+        :param decoder_dim: input size of decoder network
+        :param vocab_size: total number of characters used in training
+        :param encoder_dim: input size of encoder network
+        :param dropout: dropout rate
+        """
+        super(DecoderWithAttention, self).__init__()
+        self.encoder_dim = encoder_dim
         self.attention_dim = attention_dim
+        self.embed_dim = embed_dim
         self.decoder_dim = decoder_dim
+        self.vocab_size = vocab_size
+        self.dropout = dropout
+        self.device = device
+        self.attention = Attention(encoder_dim, decoder_dim, attention_dim)  # attention network
+        self.embedding = nn.Embedding(vocab_size, embed_dim)  # embedding layer
+        self.dropout = nn.Dropout(p=self.dropout)
+        self.decode_step = nn.LSTMCell(embed_dim + encoder_dim, decoder_dim, bias=True)  # decoding LSTMCell
+        self.init_h = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial hidden state of LSTMCell
+        self.init_c = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial cell state of LSTMCell
+        self.f_beta = nn.Linear(decoder_dim, encoder_dim)  # linear layer to create a sigmoid-activated gate
+        self.sigmoid = nn.Sigmoid()
+        self.fc = nn.Linear(decoder_dim, vocab_size)  # linear layer to find scores over vocabulary
+        self.init_weights()  # initialize some layers with the uniform distribution
 
-        self.embedding = nn.Embedding(vocab_size, embed_size)
-        self.attention = Attention(encoder_dim, decoder_dim, attention_dim)
+    def init_weights(self):
+        self.embedding.weight.data.uniform_(-0.1, 0.1)
+        self.fc.bias.data.fill_(0)
+        self.fc.weight.data.uniform_(-0.1, 0.1)
 
-        self.init_h = nn.Linear(encoder_dim, decoder_dim)
-        self.init_c = nn.Linear(encoder_dim, decoder_dim)
-        self.lstm_cell = nn.LSTMCell(embed_size + encoder_dim, decoder_dim, bias=True)
-        self.f_beta = nn.Linear(decoder_dim, encoder_dim)
+    def load_pretrained_embeddings(self, embeddings):
+        self.embedding.weight = nn.Parameter(embeddings)
 
-        self.fcn = nn.Linear(decoder_dim, vocab_size)
-        self.drop = nn.Dropout(drop_prob)
-
-    def forward(self, features, captions):
-
-        # vectorize the caption
-        embeds = self.embedding(captions)
-
-        # Initialize LSTM state
-        h, c = self.init_hidden_state(features)  # (batch_size, decoder_dim)
-
-        # get the seq length to iterate
-        seq_length = len(captions[0]) - 1  # Exclude the last one
-        batch_size = captions.size(0)
-        num_features = features.size(1)
-
-        preds = torch.zeros(batch_size, seq_length, self.vocab_size).to(device)
-        alphas = torch.zeros(batch_size, seq_length, num_features).to(device)
-
-
-        for s in range(seq_length):
-            alpha, context = self.attention(features, h)
-            lstm_input = torch.cat((embeds[:, s], context), dim=1)
-            h, c = self.lstm_cell(lstm_input, (h, c))
-
-            output = self.fcn(self.drop(h))
-
-            preds[:, s] = output
-            alphas[:, s] = alpha
-
-
-        return preds, alphas
-
-    def generate_caption(self, features, max_len=200, itos=None, stoi=None):
-        # Inference part
-        # Given the image features generate the captions
-
-        batch_size = features.size(0)
-        h, c = self.init_hidden_state(features)  # (batch_size, decoder_dim)
-
-        alphas = []
-
-        # starting input
-        # word = torch.tensor(stoi['<sos>']).view(1,-1).to(device)
-        word = torch.full((batch_size, 1), stoi['<sos>']).to(device).long()
-
-        embeds = self.embedding(word)
-
-        # captions = []
-        captions = torch.zeros((batch_size, max_len), dtype=torch.long).to(device)
-        captions[:, 0] = word.squeeze()
-
-        for i in range(max_len):
-            alpha, context = self.attention(features, h)
-
-            # store the apla score
-            # alphas.append(alpha.cpu().detach().numpy())
-            # print('embeds',embeds.shape)
-            # print('embeds[:,0]',embeds[:,0].shape)
-            # print('context',context.shape)
-            lstm_input = torch.cat((embeds[:, 0], context), dim=1)
-            h, c = self.lstm_cell(lstm_input, (h, c))
-            output = self.fcn(self.drop(h))
-
-            output = output.view(batch_size, -1)
-
-            # select the word with most val
-            predicted_word_idx = output.argmax(dim=1)
-
-            # save the generated word
-            # captions.append(predicted_word_idx.item())
-            # print('predicted_word_idx',predicted_word_idx.shape)
-            captions[:, i] = predicted_word_idx
-
-            # end if <EOS detected>
-            # if itos[predicted_word_idx.item()] == "<eos>":
-            #    break
-
-            # send generated word as the next caption
-            # embeds = self.embedding(predicted_word_idx.unsqueeze(0))
-            embeds = self.embedding(predicted_word_idx).unsqueeze(1)
-
-        # covert the vocab idx to words and return sentence
-        # return [itos[idx] for idx in captions]
-
-        return captions
+    def fine_tune_embeddings(self, fine_tune=True):
+        for p in self.embedding.parameters():
+            p.requires_grad = fine_tune
 
     def init_hidden_state(self, encoder_out):
         mean_encoder_out = encoder_out.mean(dim=1)
@@ -144,45 +99,99 @@ class DecoderRNN(nn.Module):
         c = self.init_c(mean_encoder_out)
         return h, c
 
+    def forward(self, encoder_out, encoded_captions, caption_lengths):
+        """
+        :param encoder_out: output of encoder network
+        :param encoded_captions: transformed sequence from character to integer
+        :param caption_lengths: length of transformed sequence
+        """
+        batch_size = encoder_out.size(0)
+        encoder_dim = encoder_out.size(-1)
+        vocab_size = self.vocab_size
+        encoder_out = encoder_out.view(batch_size, -1, encoder_dim)  # (batch_size, num_pixels, encoder_dim)
+        num_pixels = encoder_out.size(1)
+        caption_lengths, sort_ind = caption_lengths.squeeze(1).sort(dim=0, descending=True)
+        encoder_out = encoder_out[sort_ind]
+        encoded_captions = encoded_captions[sort_ind]
+        # embedding transformed sequence for vector
+        embeddings = self.embedding(encoded_captions)  # (batch_size, max_caption_length, embed_dim)
+        # initialize hidden state and cell state of LSTM cell
+        h, c = self.init_hidden_state(encoder_out)  # (batch_size, decoder_dim)
+        # set decode length by caption length - 1 because of omitting start token
+        decode_lengths = (caption_lengths - 1).tolist()
+        predictions = torch.zeros(batch_size, max(decode_lengths), vocab_size).to(self.device)
+        alphas = torch.zeros(batch_size, max(decode_lengths), num_pixels).to(self.device)
+        # predict sequence
+        for t in range(max(decode_lengths)):
+            batch_size_t = sum([l > t for l in decode_lengths])
+            attention_weighted_encoding, alpha = self.attention(encoder_out[:batch_size_t], h[:batch_size_t])
+            gate = self.sigmoid(self.f_beta(h[:batch_size_t]))  # gating scalar, (batch_size_t, encoder_dim)
+            attention_weighted_encoding = gate * attention_weighted_encoding
+            h, c = self.decode_step(
+                torch.cat([embeddings[:batch_size_t, t, :], attention_weighted_encoding], dim=1),
+                (h[:batch_size_t], c[:batch_size_t]))  # (batch_size_t, decoder_dim)
+            preds = self.fc(self.dropout(h))  # (batch_size_t, vocab_size)
+            predictions[:batch_size_t, t, :] = preds
+            alphas[:batch_size_t, t, :] = alpha
+        return predictions, encoded_captions, decode_lengths, alphas, sort_ind
 
-class EncoderCNNtrain18(nn.Module):
-    def __init__(self):
-        super(EncoderCNNtrain18, self).__init__()
-        resnet = torchvision.models.resnet18(pretrained=True)
-        # for param in resnet.parameters():
-        #    param.requires_grad_(False)
+    def predict(self, encoder_out, decode_lengths, tokenizer):
+        batch_size = encoder_out.size(0)
+        encoder_dim = encoder_out.size(-1)
+        vocab_size = self.vocab_size
+        encoder_out = encoder_out.view(batch_size, -1, encoder_dim)  # (batch_size, num_pixels, encoder_dim)
+        num_pixels = encoder_out.size(1)
+        # embed start tocken for LSTM input
+        start_tockens = torch.ones(batch_size, dtype=torch.long).to(self.device) * tokenizer.stoi["<sos>"]
+        embeddings = self.embedding(start_tockens)
+        # initialize hidden state and cell state of LSTM cell
+        h, c = self.init_hidden_state(encoder_out)  # (batch_size, decoder_dim)
+        predictions = torch.zeros(batch_size, decode_lengths, vocab_size).to(self.device)
+        # predict sequence
+        for t in range(decode_lengths):
+            attention_weighted_encoding, alpha = self.attention(encoder_out, h)
+            gate = self.sigmoid(self.f_beta(h))  # gating scalar, (batch_size_t, encoder_dim)
+            attention_weighted_encoding = gate * attention_weighted_encoding
+            h, c = self.decode_step(
+                torch.cat([embeddings, attention_weighted_encoding], dim=1),
+                (h, c))  # (batch_size_t, decoder_dim)
+            preds = self.fc(self.dropout(h))  # (batch_size_t, vocab_size)
+            predictions[:, t, :] = preds
+            if np.argmax(preds.detach().cpu().numpy()) == tokenizer.stoi["<eos>"]:
+                break
+            embeddings = self.embedding(torch.argmax(preds, -1))
+        return predictions
 
-        modules = list(resnet.children())[:-2]
-        self.resnet = nn.Sequential(*modules)
 
-    def forward(self, images):
-        features = self.resnet(images)  # (batch_size,512,8,8)
-        features = features.permute(0, 2, 3, 1)  # (batch_size,8,8,512)
-        features = features.view(features.size(0), -1, features.size(-1))  # (batch_size,64,512)
-        # print(features.shape)
-        return features
-
-
-class EncoderDecodertrain18(nn.Module):
-    def __init__(self, embed_size, vocab_size, attention_dim, encoder_dim, decoder_dim, drop_prob=0.3):
+class Caption(nn.Module):
+    def __init__(self,
+                 embed_dim,
+                 attention_dim,
+                 decoder_dim,
+                 encoder_dim,
+                 vocab_size,
+                 dropout,
+                 max_length,
+                 tokenizer,
+                 ):
         super().__init__()
-        self.encoder = EncoderCNNtrain18()
-        self.decoder = DecoderRNN(
-            embed_size=embed_size,
-            vocab_size=vocab_size,
-            attention_dim=attention_dim,
-            encoder_dim=encoder_dim,
-            decoder_dim=decoder_dim
-        )
+        device=torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+        self.encoder=Encoder()
+        self.decoder=DecoderWithAttention(attention_dim, embed_dim, decoder_dim, vocab_size, device, encoder_dim=encoder_dim, dropout=dropout)
+        self.token=tokenizer
 
-    def forward(self, images, captions):
-        images=images/255.
+        self.max_length=max_length
+    def forward(self, images,labels,label_lengths):
         features = self.encoder(images)
-        outputs = self.decoder(features, captions)
-        return outputs
+        predictions, caps_sorted, decode_lengths, alphas, sort_ind = self.decoder(features, labels, label_lengths)
 
-
-
+        return predictions, caps_sorted, decode_lengths, alphas, sort_ind
+    def predict(self,images):
+        features = self.encoder(images)
+        predictions = self.decoder.predict(features, self.max_length, self.token)
+        predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
+        _text_preds = self.token.predict_captions(predicted_sequence)
+        return _text_preds
 
 
 if __name__=='__main__':

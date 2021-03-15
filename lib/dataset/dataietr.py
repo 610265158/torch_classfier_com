@@ -26,39 +26,9 @@ import os
 
 
 
-class WordUtil():
-    def __init__(self, df):
-        words = set()
-        for st in df['InChI']:
-            words.update(set(st))
-        len(words)
-
-        vocab = list(words)
-        vocab.append('<sos>')
-        vocab.append('<eos>')
-        vocab.append('<pad>')
-        self.stoi = {'C': 0, ')': 1, 'P': 2, 'l': 3, '=': 4, '3': 5, 'N': 6, 'I': 7, '2': 8, '6': 9, 'H': 10, '4': 11,
-                'F': 12, '0': 13, '1': 14, '-': 15, 'O': 16, '8': 17,
-                ',': 18, 'B': 19, '(': 20, '7': 21, 'r': 22, '/': 23, 'm': 24, 'c': 25, 's': 26, 'h': 27, 'i': 28,
-                't': 29, 'T': 30, 'n': 31, '5': 32, '+': 33, 'b': 34, '9': 35,
-                'D': 36, 'S': 37, '<sos>': 38, '<eos>': 39, '<pad>': 40}
-        self.itos = {item[1]: item[0] for item in self.stoi.items()}
-
-
-    def string_to_ints(self,string):
-
-        l=[self.stoi['<sos>']]
-        for s in string:
-            l.append(self.stoi[s])
-        l.append(self.stoi['<eos>'])
-        return l
-    def ints_to_string(self,l):
-        return ''.join(list(map(lambda i:self.itos[i],l)))
-
-
 
 class AlaskaDataIter():
-    def __init__(self, df,
+    def __init__(self, df,tokenizer,
                  training_flag=True,shuffle=True):
 
 
@@ -68,7 +38,7 @@ class AlaskaDataIter():
 
         self.df=df
         logger.info('contains %d samples'%len(self.df))
-        self.word_tool=WordUtil(df)
+        self.word_tool=tokenizer
 
 
 
@@ -247,36 +217,32 @@ class AlaskaDataIter():
 
 
         fname = dp['file_path']
-        label = dp['InChI']
+        label = dp['InChI_text']
 
 
-        label_padding=np.zeros(shape=[cfg.MODEL.train_length])+self.word_tool.stoi['<pad>']
-        try:
-
-            image_raw = cv2.imread(fname,-1)
 
 
-            if is_training:
-                transformed=self.train_trans(image=image_raw)
 
-                image=transformed['image']
+        image_raw = cv2.imread(fname,-1)
 
-            else:
-                transformed = self.val_trans(image=image_raw)
+        if is_training:
 
-                image = transformed['image']
+            label_padding = np.zeros(shape=[cfg.MODEL.train_length]) + self.word_tool.stoi['<pad>']
+            transformed=self.train_trans(image=image_raw)
 
-            label=self.word_tool.string_to_ints(label)
-            if len(label)>cfg.MODEL.train_length:
-                label=label[:cfg.MODEL.train_length]
-            label_padding[:len(label)]=label
-        except:
-            print(traceback.print_exc())
-            logger.info('err happends with %s'% fname)
-            image=np.zeros(shape=[cfg.MODEL.height,cfg.MODEL.width],dtype=np.uint8)
-            label=np.zeros_like(label)
+            image=transformed['image']
+            label = self.word_tool.text_to_sequence(label)
+            if len(label) > cfg.MODEL.train_length:
+                label = label[:cfg.MODEL.train_length]
 
-        image=np.stack([image,image,image],0)
+            label_padding[:len(label)] = label
 
+            image = np.stack([image, image, image], 0)
 
-        return image,label_padding
+            return image, label_padding,275
+        else:
+            transformed = self.val_trans(image=image_raw)
+
+            image = transformed['image']
+            return image
+
