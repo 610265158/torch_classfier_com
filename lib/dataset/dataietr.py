@@ -43,36 +43,11 @@ class AlaskaDataIter():
 
 
 
-        self.train_trans=A.Compose([A.RandomResizedCrop(height=cfg.MODEL.height,
-                                                        width=cfg.MODEL.width,
-                                                        scale=[0.9,1.]
-                                                        ),
+        self.train_trans=A.Compose([A.Resize(height=cfg.MODEL.height,
+                                           width=cfg.MODEL.width)
+                                                        
 
-                                    A.ShiftScaleRotate(p=0.5,
-                                                       shift_limit=0.1,
-                                                       scale_limit=0.1,
-                                                       rotate_limit=15,
-                                                       border_mode=cv2.BORDER_CONSTANT),
 
-                                    A.RandomBrightnessContrast(brightness_limit=(0.2), contrast_limit=(0.2),
-                                                             p=0.5),
-                                    A.CLAHE(clip_limit=(1, 4), p=0.5),
-                                    # A.OneOf([
-                                    #     A.GridDistortion(num_steps=5, distort_limit=1.,border_mode=cv2.BORDER_CONSTANT),
-                                    #     A.ElasticTransform(alpha=3,border_mode=cv2.BORDER_CONSTANT),
-                                    # ], p=0.2),
-
-                                    A.JpegCompression(p=0.2,
-                                                      quality_lower=80,
-                                                      quality_upper=100),
-                                    A.OneOf([
-                                        A.IAAAffine(mode='constant'),
-                                        A.IAAPerspective(),
-                                        A.IAAPiecewiseAffine(p=0.2),
-                                        A.IAASharpen(p=0.2),
-                                    ], p=0.2),
-
-                                    # A.CoarseDropout(max_holes=6,max_width=64,max_height=64)
                               ] ,
 
                               )
