@@ -239,7 +239,7 @@ class AlaskaDataIter():
 
             image = np.stack([image, image, image], 0)
 
-            return image, label_padding,275
+            return image, label_padding
         else:
             transformed = self.val_trans(image=image_raw)
 

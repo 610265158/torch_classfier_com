@@ -73,7 +73,7 @@ class Train(object):
                        decoder_dim=decoder_dim,
                        dropout=0.5,
                        max_length=cfg.MODEL.train_length,
-                       tokenizer=self.word_tool)
+                       tokenizer=self.word_tool).to(self.device)
 
 
     self.load_weight()
@@ -115,8 +115,7 @@ class Train(object):
     #                                                             min_lr=1e-6,factor=0.5,verbose=True)
     self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR( self.optimizer, self.epochs,eta_min=1.e-7)
 
-    self.criterion = nn.CrossEntropyLoss().to(self.device)
-
+    self.criterion = nn.CrossEntropyLoss(ignore_index=self.word_tool.stoi["<pad>"]).to(self.device)
 
 
     self.criterion_val = nn.CrossEntropyLoss().to(self.device)
@@ -150,7 +149,7 @@ class Train(object):
 
 
 
-      for images, label,label_length in self.train_ds:
+      for images, label in self.train_ds:
 
         if epoch_num<10:
             ###excute warm up in the first epoch
@@ -164,18 +163,19 @@ class Train(object):
 
         start=time.time()
 
-
         data = images.to(self.device).float()
         label = label.to(self.device).long()
-        label_length = label_length.to(self.device).long()
-
 
         batch_size = data.shape[0]
 
-        predictions, caps_sorted, decode_lengths, alphas, sort_ind = self.model(data,label,label_length)
+        predictions, alpha = self.model(data,label)
 
-        targets = caps_sorted[:, 1:]
-        current_loss = self.criterion(predictions, targets[:,1:])
+        predictions=predictions.reshape(-1,len(self.word_tool))
+        target=label[:,1:].reshape(-1)
+
+
+
+        current_loss = self.criterion(predictions,target )
 
         summary_loss.update(current_loss.detach().item(), batch_size)
 
