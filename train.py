@@ -70,27 +70,29 @@ def main():
         val_data = data.iloc[val_ind].copy()
 
 
-        trainds=AlaskaDataIter(train_data,token_tools,training_flag=True,shuffle=False)
-        train_ds = DataLoader(trainds,
-                              cfg.TRAIN.batch_size,
-                              num_workers=cfg.TRAIN.process_num,
-                              shuffle=True)
 
-        valds = AlaskaDataIter(val_data,token_tools,training_flag=False,shuffle=False)
-        test_ds = DataLoader(valds,
-                             cfg.TRAIN.batch_size,
-                             num_workers=cfg.TRAIN.process_num,
-                             shuffle=False)
 
         ###build trainer
-        trainer = Train(train_ds=train_ds,
-                        val_ds=test_ds,
+        trainer = Train(train_df=train_data,
+                        val_df=val_data,
                         fold=fold,
                         tokenizer=token_tools)
 
         print('it is here')
         if cfg.TRAIN.vis:
             print('show it, here')
+
+            trainds = AlaskaDataIter(train_data, token_tools, training_flag=True, shuffle=False)
+            train_ds = DataLoader(trainds,
+                                  cfg.TRAIN.batch_size,
+                                  num_workers=cfg.TRAIN.process_num,
+                                  shuffle=True)
+
+            valds = AlaskaDataIter(val_data, token_tools, training_flag=False, shuffle=False)
+            test_ds = DataLoader(valds,
+                                 cfg.TRAIN.batch_size,
+                                 num_workers=cfg.TRAIN.process_num,
+                                 shuffle=False)
             for images, labels in train_ds:
 
 

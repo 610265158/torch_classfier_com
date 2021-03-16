@@ -12,7 +12,7 @@ import  numpy as np
 
 
 class Encoder(nn.Module):
-    def __init__(self, model_name='resnet18', pretrained=False):
+    def __init__(self, model_name='resnet18', pretrained=True):
         super().__init__()
         self.cnn = timm.create_model(model_name, pretrained=pretrained)
         self.n_features = self.cnn.fc.in_features
@@ -102,7 +102,7 @@ class DecoderWithAttention(nn.Module):
         c = self.init_c(mean_encoder_out)
         return h, c
 
-    def forward(self, encoder_out, encoded_captions,max_length=274):
+    def forward(self, encoder_out, encoded_captions,max_length):
         """
         :param encoder_out: output of encoder network
         :param encoded_captions: transformed sequence from character to integer
@@ -182,9 +182,9 @@ class Caption(nn.Module):
         self.token=tokenizer
 
         self.max_length=max_length
-    def forward(self, images,labels):
+    def forward(self, images,labels,train_length):
         features = self.encoder(images)
-        predictions, alphas = self.decoder(features, labels)
+        predictions, alphas = self.decoder(features, labels,train_length)
 
         return predictions,alphas
     def predict(self,images):
