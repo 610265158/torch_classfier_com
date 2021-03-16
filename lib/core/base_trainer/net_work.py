@@ -182,7 +182,7 @@ class Train(object):
 
         batch_size = data.shape[0]
 
-        predictions, alpha = self.model(data,label)
+        predictions, alpha = self.model(data,label,self.train_generate_length-1)
 
         predictions=predictions.reshape(-1,len(self.word_tool))
         target=label[:,1:].reshape(-1)

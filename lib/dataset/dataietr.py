@@ -45,7 +45,7 @@ class AlaskaDataIter():
 
         self.train_trans=A.Compose([A.Resize(height=cfg.MODEL.height,
                                            width=cfg.MODEL.width)
-                                                        
+
 
 
                               ] ,
@@ -219,5 +219,6 @@ class AlaskaDataIter():
             transformed = self.val_trans(image=image_raw)
 
             image = transformed['image']
+            image = np.stack([image, image, image], 0)
             return image
 
