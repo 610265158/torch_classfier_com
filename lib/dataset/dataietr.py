@@ -185,7 +185,15 @@ class AlaskaDataIter():
 
 
         return seg_label,ann
+    def letterbox(self,image):
+        h,w=image.shape
 
+        size=max(h,w)
+        image_container=np.zeros(shape=[size,size],dtype=np.uint8)+255
+
+        image_container[(size-h)//2:(size-h)//2+h,(size-w)//2:(size-w)//2+w]=image
+
+        return image_container
     def single_map_func(self, dp, is_training):
         """Data augmentation function."""
         ####customed here
@@ -194,11 +202,8 @@ class AlaskaDataIter():
         fname = dp['file_path']
         label = dp['InChI_text']
 
-
-
-
-
         image_raw = cv2.imread(fname,-1)
+        image_raw = self.letterbox(image_raw)
 
         if is_training:
 
