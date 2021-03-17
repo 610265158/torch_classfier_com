@@ -1,4 +1,4 @@
-import editdistance
+import Levenshtein
 
 import numpy as np
 import torch.nn as nn
@@ -39,27 +39,23 @@ class DISTANCEMeter(object):
 
         self.y_true = None
         self.y_pred = None
-        self.score=0
-        self.num_sampl=0
+        self.scores=[]
+
     def update(self, y_true, y_pred):
 
         for i in range(y_true.shape[0]):
 
-            cur_score=editdistance.eval(y_true[i],y_pred[i])
+            score=Levenshtein.distance(y_true[i],y_pred[i])
             
-            self.score+=cur_score
+            self.scores.append(score)
 
-        self.num_sampl+=y_true.shape[0]
+
 
 
     @property
     def avg(self):
 
-
-
-
-        
-        return self.score/self.num_sampl
+        return np.mean(self.scores)
 
 
 
