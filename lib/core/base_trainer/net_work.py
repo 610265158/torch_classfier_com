@@ -76,6 +76,7 @@ class Train(object):
     self.word_tool = tokenizer
     self.train_generate_length=cfg.MODEL.train_length
 
+    self.gradient_clip=cfg.TRAIN.gradient_clip
 
     embed_dim = 200
 
@@ -116,7 +117,7 @@ class Train(object):
         self.model, self.optimizer = amp.initialize( self.model, self.optimizer, opt_level="O1")
 
 
-    # self.model=nn.DataParallel(self.model)
+    self.model=nn.DataParallel(self.model)
 
     self.ema = EMA(self.model, 0.97)
 
@@ -161,8 +162,6 @@ class Train(object):
                       m.weight.requires_grad = False
                       m.bias.requires_grad = False
 
-
-
       for images, label in self.train_ds:
 
         if epoch_num<10:
@@ -187,8 +186,6 @@ class Train(object):
         predictions=predictions.reshape(-1,len(self.word_tool))
         target=label[:,1:].reshape(-1)
 
-
-
         current_loss = self.criterion(predictions,target )
 
         summary_loss.update(current_loss.detach().item(), batch_size)
@@ -202,6 +199,7 @@ class Train(object):
             current_loss.backward()
         
         if ((self.iter_num + 1) % self.accumulation_step) == 0:
+            nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.gradient_clip, norm_type=2)
             self.optimizer.step()
             self.optimizer.zero_grad()
         if cfg.MODEL.ema:
@@ -249,7 +247,7 @@ class Train(object):
 
                 batch_size = data.shape[0]
 
-                predictions = self.model.predict(data)
+                predictions = self.model(data)
                 predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
                 
                 _text_preds = self.word_tool.predict_captions(predicted_sequence)
@@ -324,7 +322,7 @@ class Train(object):
                                                                                          distance_meter.avg)
 
       logger.info('A model saved to %s' % current_model_saved_name)
-      torch.save(self.model.state_dict(),current_model_saved_name)
+      torch.save(self.model.module.state_dict(),current_model_saved_name)
 
       ####switch back
       if cfg.MODEL.ema:

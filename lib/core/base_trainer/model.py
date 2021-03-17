@@ -24,6 +24,7 @@ class Encoder(nn.Module):
         x=x/255.
         features = self.cnn(x)
         features = features.permute(0, 2, 3, 1)
+        features = features.view(bs,-1,features.size(-1))
         return features
 class Attention(nn.Module):
     """
@@ -102,22 +103,22 @@ class DecoderWithAttention(nn.Module):
         c = self.init_c(mean_encoder_out)
         return h, c
 
-    def forward(self, encoder_out, encoded_captions,max_length):
+    def forward(self, cnn_fatures, encoded_captions,max_length):
         """
         :param encoder_out: output of encoder network
         :param encoded_captions: transformed sequence from character to integer
 
         """
-        batch_size = encoder_out.size(0)
-        encoder_dim = encoder_out.size(-1)
+        batch_size = cnn_fatures.size(0)
+        num_pixels = cnn_fatures.size(1)
         vocab_size = self.vocab_size
-        encoder_out = encoder_out.view(batch_size, -1, encoder_dim)  # (batch_size, num_pixels, encoder_dim)
-        num_pixels = encoder_out.size(1)
+
+
 
         # embedding transformed sequence for vector
         embeddings = self.embedding(encoded_captions)  # (batch_size, max_caption_length, embed_dim)
         # initialize hidden state and cell state of LSTM cell
-        h, c = self.init_hidden_state(encoder_out)  # (batch_size, decoder_dim)
+        h, c = self.init_hidden_state(cnn_fatures)  # (batch_size, decoder_dim)
         # set decode length by caption length - 1 because of omitting start token
 
         predictions = torch.zeros(batch_size,max_length, vocab_size).to(self.device)
@@ -125,7 +126,7 @@ class DecoderWithAttention(nn.Module):
         # predict sequence
         for t in range(max_length):
 
-            attention_weighted_encoding, alpha = self.attention(encoder_out, h)
+            attention_weighted_encoding, alpha = self.attention(cnn_fatures, h)
             gate = self.sigmoid(self.f_beta(h[:]))  # gating scalar, (batch_size_t, encoder_dim)
             attention_weighted_encoding = gate * attention_weighted_encoding
             h, c = self.decode_step(
@@ -136,21 +137,21 @@ class DecoderWithAttention(nn.Module):
             alphas[:, t, :] = alpha
         return predictions, encoded_captions
 
-    def predict(self, encoder_out, decode_lengths, tokenizer):
-        batch_size = encoder_out.size(0)
-        encoder_dim = encoder_out.size(-1)
+    def predict(self, cnn_fatures, decode_lengths, tokenizer):
+        batch_size = cnn_fatures.size(0)
+
         vocab_size = self.vocab_size
-        encoder_out = encoder_out.view(batch_size, -1, encoder_dim)  # (batch_size, num_pixels, encoder_dim)
-        num_pixels = encoder_out.size(1)
+
+
         # embed start tocken for LSTM input
         start_tockens = torch.ones(batch_size, dtype=torch.long).to(self.device) * tokenizer.stoi["<sos>"]
         embeddings = self.embedding(start_tockens)
         # initialize hidden state and cell state of LSTM cell
-        h, c = self.init_hidden_state(encoder_out)  # (batch_size, decoder_dim)
+        h, c = self.init_hidden_state(cnn_fatures)  # (batch_size, decoder_dim)
         predictions = torch.zeros(batch_size, decode_lengths, vocab_size).to(self.device)
         # predict sequence
         for t in range(decode_lengths):
-            attention_weighted_encoding, alpha = self.attention(encoder_out, h)
+            attention_weighted_encoding, alpha = self.attention(cnn_fatures, h)
             gate = self.sigmoid(self.f_beta(h))  # gating scalar, (batch_size_t, encoder_dim)
             attention_weighted_encoding = gate * attention_weighted_encoding
             h, c = self.decode_step(
@@ -182,16 +183,21 @@ class Caption(nn.Module):
         self.token=tokenizer
 
         self.max_length=max_length
-    def forward(self, images,labels,train_length):
-        features = self.encoder(images)
-        predictions, alphas = self.decoder(features, labels,train_length)
+    def forward(self, images,labels=None,train_length=None):
 
-        return predictions,alphas
-    def predict(self,images):
-        features = self.encoder(images)
-        predictions = self.decoder.predict(features, self.max_length, self.token)
+        if labels is not None:
 
-        return predictions
+            features = self.encoder(images)
+            predictions, alphas = self.decoder(features, labels,train_length)
+
+            return predictions,alphas
+        else:
+            features = self.encoder(images)
+            predictions = self.decoder.predict(features, self.max_length, self.token)
+
+            return predictions
+
+
 
 
 if __name__=='__main__':
