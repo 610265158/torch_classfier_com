@@ -12,17 +12,18 @@ import  numpy as np
 
 
 class Encoder(nn.Module):
-    def __init__(self, model_name='resnet18', pretrained=True):
+    def __init__(self, model_name='tf_efficientnet_b0_ns', pretrained=True):
         super().__init__()
         self.cnn = timm.create_model(model_name, pretrained=pretrained)
-        self.n_features = self.cnn.fc.in_features
-        self.cnn.global_pool = nn.Identity()
-        self.cnn.fc = nn.Identity()
 
+        self.reduce_head=nn.Sequential(nn.Conv2d(1280,512,kernel_size=1,stride=1,padding=0),
+                                       nn.BatchNorm2d(512,),
+                                       nn.ReLU())
     def forward(self, x):
         bs = x.size(0)
         x=x/255.
         features = self.cnn(x)
+        features = self.reduce_head(x)
         features = features.permute(0, 2, 3, 1)
         features = features.view(bs,-1,features.size(-1))
         return features
