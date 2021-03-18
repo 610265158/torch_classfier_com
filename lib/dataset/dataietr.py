@@ -205,25 +205,28 @@ class AlaskaDataIter():
         image_raw = cv2.imread(fname,-1)
         image_raw = self.letterbox(image_raw)
 
+
+
+        ### make label
+        label_padding = np.zeros(shape=[cfg.MODEL.train_length]) + self.word_tool.stoi['<pad>']
+        label = self.word_tool.text_to_sequence(label)
+        if len(label) > cfg.MODEL.train_length:
+            label = label[:cfg.MODEL.train_length]
+
+        label_padding[:len(label)] = label
+
+
         if is_training:
 
-            label_padding = np.zeros(shape=[cfg.MODEL.train_length]) + self.word_tool.stoi['<pad>']
+
             transformed=self.train_trans(image=image_raw)
 
             image=transformed['image']
-            label = self.word_tool.text_to_sequence(label)
-            if len(label) > cfg.MODEL.train_length:
-                label = label[:cfg.MODEL.train_length]
 
-            label_padding[:len(label)] = label
-
-            image = np.stack([image, image, image], 0)
-
-            return image, label_padding
         else:
             transformed = self.val_trans(image=image_raw)
 
             image = transformed['image']
-            image = np.stack([image, image, image], 0)
-            return image
+        image = np.stack([image, image, image], 0)
+        return image, label_padding
 
