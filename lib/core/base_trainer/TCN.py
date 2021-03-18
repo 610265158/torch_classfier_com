@@ -136,7 +136,7 @@ class Caption(nn.Module):
 
 
         features = self.encoder(images)
-        predictions, alphas = self.decoder(features, labels)
+        predictions = self.decoder(features, labels)
 
         return predictions
 
