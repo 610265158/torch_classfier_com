@@ -90,7 +90,7 @@ class Train(object):
                        encoder_dim=encoder_dim,
                        decoder_dim=decoder_dim,
                        dropout=0.5,
-                       max_length=cfg.MODEL.train_length,
+                       max_length=cfg.MODEL.train_length-1,
                        tokenizer=self.word_tool).to(self.device)
 
 
@@ -181,7 +181,7 @@ class Train(object):
 
         batch_size = data.shape[0]
 
-        predictions, alpha = self.model(data,label,self.train_generate_length-1)
+        predictions = self.model(data,label)
 
         predictions=predictions.reshape(-1,len(self.word_tool))
         target=label[:,1:].reshape(-1)
@@ -191,13 +191,12 @@ class Train(object):
         summary_loss.update(current_loss.detach().item(), batch_size)
 
 
-
         if cfg.TRAIN.mix_precision:
             with amp.scale_loss(current_loss, self.optimizer) as scaled_loss:
                 scaled_loss.backward()
         else:
             current_loss.backward()
-        
+
         if ((self.iter_num + 1) % self.accumulation_step) == 0:
             nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.gradient_clip, norm_type=2)
             self.optimizer.step()
@@ -235,21 +234,30 @@ class Train(object):
     def distributed_test_epoch(epoch_num):
 
         L_distance_meter=DISTANCEMeter()
-
+        summary_loss=AverageMeter()
         self.model.eval()
         t = time.time()
 
         text_preds = []
         with torch.no_grad():
-            for step,(images) in enumerate(self.val_ds):
+            for step,(images,labels) in enumerate(self.val_ds):
 
                 data = images.to(self.device).float()
-
+                labels= labels.to(self.device).long()
                 batch_size = data.shape[0]
 
                 predictions = self.model(data)
+
+                ### for loss:
+                predictions_for_loss = predictions.reshape(-1, len(self.word_tool))
+                target = labels[:, 1:].reshape(-1)
+                current_loss = self.criterion(predictions_for_loss, target)
+                summary_loss.update(current_loss.detach().item(), batch_size)
+
+
+                ### predict
                 predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
-                
+
                 _text_preds = self.word_tool.predict_captions(predicted_sequence)
                 text_preds+=_text_preds
 
@@ -260,7 +268,7 @@ class Train(object):
 
 
 
-        return L_distance_meter
+        return L_distance_meter,summary_loss
 
 
 
@@ -296,14 +304,16 @@ class Train(object):
 
       if epoch%cfg.TRAIN.test_interval==0:
 
-          distance_meter = distributed_test_epoch(epoch)
+          distance_meter,summary_loss = distributed_test_epoch(epoch)
 
           val_epoch_log_message = '[fold %d], '\
                                   '[RESULT]: VAL. Epoch: %d,' \
+                                  ' val_loss: %.5f,' \
                                   ' L_distance: %.5f,' \
                                   ' time:%.5f' % (
                                    self.fold,
                                    epoch,
+                                   summary_loss.avg,
                                    distance_meter.avg,
                                    (time.time() - t))
           logger.info(val_epoch_log_message)
@@ -317,9 +327,10 @@ class Train(object):
       ###save the best auc model
 
       #### save the model every end of epoch
-      current_model_saved_name='./models/fold%d_epoch_%d_val_dis_%.6f.pth'%(self.fold,
-                                                                                         epoch,
-                                                                                         distance_meter.avg)
+      current_model_saved_name='./models/fold%d_epoch_%d_val_dis_%.6f_loss_%.6f.pth'%(self.fold,
+                                                                                            epoch,
+                                                                                            distance_meter.avg,
+                                                                                            summary_loss.avg)
 
       logger.info('A model saved to %s' % current_model_saved_name)
       torch.save(self.model.module.state_dict(),current_model_saved_name)

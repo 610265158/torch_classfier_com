@@ -136,7 +136,7 @@ class DecoderWithAttention(nn.Module):
             preds = self.fc(self.dropout(h))  # (batch_size_t, vocab_size)
             predictions[:, t, :] = preds
             alphas[:, t, :] = alpha
-        return predictions, encoded_captions
+        return predictions, alphas
 
     def predict(self, cnn_fatures, decode_lengths, tokenizer):
         batch_size = cnn_fatures.size(0)
@@ -184,14 +184,14 @@ class Caption(nn.Module):
         self.token=tokenizer
 
         self.max_length=max_length
-    def forward(self, images,labels=None,train_length=None):
+    def forward(self, images,labels=None):
 
         if labels is not None:
 
             features = self.encoder(images)
-            predictions, alphas = self.decoder(features, labels,train_length)
+            predictions, alphas = self.decoder(features, labels,self.max_length)
 
-            return predictions,alphas
+            return predictions
         else:
             features = self.encoder(images)
             predictions = self.decoder.predict(features, self.max_length, self.token)

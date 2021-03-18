@@ -18,6 +18,7 @@ class Encoder(nn.Module):
 
 
         self.expand=nn.Linear(in_features=64,out_features=193)
+
     def forward(self, x):
         bs = x.size(0)
         x=x/255.
@@ -95,28 +96,19 @@ class Decoder(nn.Module):
             p.requires_grad = fine_tune
 
 
-    def forward(self, cnn_fatures, encoded_captions,max_length):
+    def forward(self, cnn_fatures, encoded_captions):
         """
         :param encoder_out: output of encoder network
         :param encoded_captions: transformed sequence from character to integer
-
         """
-        print(cnn_fatures.size())
 
         out, c = self.rnn(cnn_fatures)
         out = self.head(out)
         out = out.permute([0, 2, 1])
 
-        return out,None
+        return out
 
-    def predict(self, cnn_fatures, decode_lengths, tokenizer):
-        print(cnn_fatures.size())
-        batch_size=cnn_fatures.size(0)
-        out, c = self.rnn(cnn_fatures)
-        out = self.head(out)
-        predictions =out.permute([0,2,1])
 
-        return predictions
 
 
 
@@ -139,19 +131,15 @@ class Caption(nn.Module):
         self.token=tokenizer
 
         self.max_length=max_length
-    def forward(self, images,labels=None,train_length=None):
+    def forward(self, images,labels=None):
 
-        if labels is not None:
 
-            features = self.encoder(images)
-            predictions, alphas = self.decoder(features, labels,train_length)
 
-            return predictions,alphas
-        else:
-            features = self.encoder(images)
-            predictions = self.decoder.predict(features, self.max_length, self.token)
+        features = self.encoder(images)
+        predictions, alphas = self.decoder(features, labels)
 
-            return predictions
+        return predictions,alphas
+
 
 
 
