@@ -22,8 +22,8 @@ class Encoder(nn.Module):
     def forward(self, x):
         bs = x.size(0)
         x=x/255.
-        features = self.cnn(x)
-        features = self.reduce_head(x)
+        features = self.cnn.forward_features(x)
+        features = self.reduce_head(features)
         features = features.permute(0, 2, 3, 1)
         features = features.view(bs,-1,features.size(-1))
         return features
