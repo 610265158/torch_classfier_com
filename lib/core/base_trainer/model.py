@@ -18,10 +18,10 @@ class Encoder(nn.Module):
 
         self.reduce_head=nn.Sequential(nn.Conv2d(1280,512,kernel_size=1,stride=1,padding=0),
                                        nn.BatchNorm2d(512,),
-                                       nn.ReLU())
+                                       nn.ReLU(inplace=True))
     def forward(self, x):
         bs = x.size(0)
-        x=x/255.
+        x = x/255.
         features = self.cnn.forward_features(x)
         features = self.reduce_head(features)
         features = features.permute(0, 2, 3, 1)
@@ -41,7 +41,7 @@ class Attention(nn.Module):
         self.encoder_att = nn.Linear(encoder_dim, attention_dim)  # linear layer to transform encoded image
         self.decoder_att = nn.Linear(decoder_dim, attention_dim)  # linear layer to transform decoder's output
         self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
         self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
 
     def forward(self, encoder_out, decoder_hidden):
@@ -104,7 +104,7 @@ class DecoderWithAttention(nn.Module):
         c = self.init_c(mean_encoder_out)
         return h, c
 
-    def forward(self, cnn_fatures, encoded_captions,max_length):
+    def forward(self, cnn_fatures, encoded_captions,label_length,max_length):
         """
         :param encoder_out: output of encoder network
         :param encoded_captions: transformed sequence from character to integer
@@ -114,8 +114,6 @@ class DecoderWithAttention(nn.Module):
         num_pixels = cnn_fatures.size(1)
         vocab_size = self.vocab_size
 
-
-
         # embedding transformed sequence for vector
         embeddings = self.embedding(encoded_captions)  # (batch_size, max_caption_length, embed_dim)
         # initialize hidden state and cell state of LSTM cell
@@ -124,12 +122,15 @@ class DecoderWithAttention(nn.Module):
 
         predictions = torch.zeros(batch_size,max_length, vocab_size).to(self.device)
         alphas = torch.zeros(batch_size, max_length, num_pixels).to(self.device)
+
+        max_seq_length_in_batch=torch.max(label_length)
+
         # predict sequence
-        for t in range(max_length):
+        for t in range(max_seq_length_in_batch):
 
             attention_weighted_encoding, alpha = self.attention(cnn_fatures, h)
-            gate = self.sigmoid(self.f_beta(h[:]))  # gating scalar, (batch_size_t, encoder_dim)
-            attention_weighted_encoding = gate * attention_weighted_encoding
+            # gate = self.sigmoid(self.f_beta(h[:]))  # gating scalar, (batch_size_t, encoder_dim)
+            # attention_weighted_encoding = gate * attention_weighted_encoding
             h, c = self.decode_step(
                 torch.cat([embeddings[:, t, :], attention_weighted_encoding], dim=1),
                 (h[:], c[:]))  # (batch_size_t, decoder_dim)
@@ -153,8 +154,8 @@ class DecoderWithAttention(nn.Module):
         # predict sequence
         for t in range(decode_lengths):
             attention_weighted_encoding, alpha = self.attention(cnn_fatures, h)
-            gate = self.sigmoid(self.f_beta(h))  # gating scalar, (batch_size_t, encoder_dim)
-            attention_weighted_encoding = gate * attention_weighted_encoding
+            # gate = self.sigmoid(self.f_beta(h))  # gating scalar, (batch_size_t, encoder_dim)
+            # attention_weighted_encoding = gate * attention_weighted_encoding
             h, c = self.decode_step(
                 torch.cat([embeddings, attention_weighted_encoding], dim=1),
                 (h, c))  # (batch_size_t, decoder_dim)
@@ -184,12 +185,12 @@ class Caption(nn.Module):
         self.token=tokenizer
 
         self.max_length=max_length
-    def forward(self, images,labels=None):
+    def forward(self, images,labels=None,label_length=None):
 
         if labels is not None:
 
             features = self.encoder(images)
-            predictions, alphas = self.decoder(features, labels,self.max_length)
+            predictions, alphas = self.decoder(features, labels,label_length,self.max_length)
 
             return predictions
         else:

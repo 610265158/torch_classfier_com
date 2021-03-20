@@ -44,7 +44,8 @@ class AlaskaDataIter():
 
 
         self.train_trans=A.Compose([A.Resize(height=cfg.MODEL.height,
-                                           width=cfg.MODEL.width)
+                                           width=cfg.MODEL.width),
+                                A.RandomRotate90(p=0.5)
 
 
 
@@ -214,7 +215,7 @@ class AlaskaDataIter():
             label = label[:cfg.MODEL.train_length]
 
         label_padding[:len(label)] = label
-
+        label_length=len(label)-1
 
         if is_training:
 
@@ -228,5 +229,5 @@ class AlaskaDataIter():
 
             image = transformed['image']
         image = np.stack([image, image, image], 0)
-        return image, label_padding
+        return 255-image, label_padding,label_length
 

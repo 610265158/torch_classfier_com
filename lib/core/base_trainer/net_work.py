@@ -55,7 +55,7 @@ class Train(object):
 
     self.val_generator = AlaskaDataIter(val_df, tokenizer, training_flag=False, shuffle=False)
     self.val_ds = DataLoader(self.val_generator,
-                           cfg.TRAIN.batch_size,
+                           cfg.TRAIN.batch_size*4,
                            num_workers=cfg.TRAIN.process_num,
                            shuffle=False)
 
@@ -162,7 +162,7 @@ class Train(object):
                       m.weight.requires_grad = False
                       m.bias.requires_grad = False
 
-      for images, label in self.train_ds:
+      for images, label,label_length in self.train_ds:
 
         if epoch_num<10:
             ###excute warm up in the first epoch
@@ -178,10 +178,10 @@ class Train(object):
 
         data = images.to(self.device).float()
         label = label.to(self.device).long()
-
+        label_length= label_length.to(self.device).long()
         batch_size = data.shape[0]
 
-        predictions = self.model(data,label)
+        predictions = self.model(data,label,label_length)
 
         predictions=predictions.reshape(-1,len(self.word_tool))
         target=label[:,1:].reshape(-1)
@@ -240,7 +240,7 @@ class Train(object):
 
         text_preds = []
         with torch.no_grad():
-            for step,(images,labels) in enumerate(self.val_ds):
+            for step,(images,labels,label_length) in enumerate(self.val_ds):
 
                 data = images.to(self.device).float()
                 labels= labels.to(self.device).long()

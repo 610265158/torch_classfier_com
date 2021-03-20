@@ -75,9 +75,8 @@ class Decoder(nn.Module):
 
         self.rnn=nn.LSTM(input_size=1280,
                          hidden_size=512,
-                         dropout=0.3,
                          bidirectional=True,
-                         num_layers=2)
+                         num_layers=1)
 
 
         self.head=nn.Linear(1024,274)
