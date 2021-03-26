@@ -13,7 +13,7 @@ from make_data import Tokenizer
 import setproctitle
 
 
-setproctitle.setproctitle("comp")
+setproctitle.setproctitle("oritation")
 
 
 def main():

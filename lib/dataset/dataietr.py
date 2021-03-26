@@ -45,7 +45,7 @@ class AlaskaDataIter():
 
         self.train_trans=A.Compose([A.Resize(height=cfg.MODEL.height,
                                            width=cfg.MODEL.width),
-                                A.RandomRotate90(p=0.5)
+                                    
 
 
 
@@ -228,6 +228,17 @@ class AlaskaDataIter():
             transformed = self.val_trans(image=image_raw)
 
             image = transformed['image']
+
+
+        dice=random.uniform(0,1)
+
+        oritation=0
+        if dice<0.5:
+            pass
+        else:
+            image=np.rot90(image,-1)
+            
+            oritation=1
         image = np.stack([image, image, image], 0)
-        return 255-image, label_padding,label_length
+        return 255-image, oritation
 

@@ -162,7 +162,7 @@ class Train(object):
                       m.weight.requires_grad = False
                       m.bias.requires_grad = False
 
-      for images, label,label_length in self.train_ds:
+      for images, label in self.train_ds:
 
         if epoch_num<10:
             ###excute warm up in the first epoch
@@ -178,15 +178,12 @@ class Train(object):
 
         data = images.to(self.device).float()
         label = label.to(self.device).long()
-        label_length= label_length.to(self.device).long()
+
         batch_size = data.shape[0]
 
-        predictions = self.model(data,label,label_length)
+        predictions = self.model(data)
 
-        predictions=predictions.reshape(-1,len(self.word_tool))
-        target=label[:,1:].reshape(-1)
-
-        current_loss = self.criterion(predictions,target )
+        current_loss = self.criterion(predictions,label )
 
         summary_loss.update(current_loss.detach().item(), batch_size)
 
@@ -233,42 +230,30 @@ class Train(object):
       return summary_loss
     def distributed_test_epoch(epoch_num):
 
-        L_distance_meter=DISTANCEMeter()
+        accuracy_meter=ACCMeter()
         summary_loss=AverageMeter()
         self.model.eval()
         t = time.time()
 
         text_preds = []
         with torch.no_grad():
-            for step,(images,labels,label_length) in enumerate(self.val_ds):
+            for step,(images,labels) in enumerate(self.val_ds):
 
                 data = images.to(self.device).float()
                 labels= labels.to(self.device).long()
                 batch_size = data.shape[0]
 
                 predictions = self.model(data)
+                current_loss = self.criterion(predictions, labels)
 
-                ### for loss:
-                predictions_for_loss = predictions.reshape(-1, len(self.word_tool))
-                target = labels[:, 1:].reshape(-1)
-                current_loss = self.criterion(predictions_for_loss, target)
                 summary_loss.update(current_loss.detach().item(), batch_size)
 
+                predictions = torch.softmax(predictions,-1)
+                predictions = torch.argmax(predictions,-1)
 
-                ### predict
-                predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
+                accuracy_meter.update(labels.cpu().numpy(),predictions.cpu().numpy())
 
-                _text_preds = self.word_tool.predict_captions(predicted_sequence)
-                text_preds+=_text_preds
-
-        text_preds = [f"InChI=1S/{text}" for text in text_preds]
-
-        L_distance_meter.update(self.val_generator.df['InChI'].values,
-                                text_preds)
-
-
-
-        return L_distance_meter,summary_loss
+        return accuracy_meter,summary_loss
 
 
 
@@ -304,17 +289,17 @@ class Train(object):
 
       if epoch%cfg.TRAIN.test_interval==0:
 
-          distance_meter,summary_loss = distributed_test_epoch(epoch)
+          accuracy_meter,summary_loss = distributed_test_epoch(epoch)
 
           val_epoch_log_message = '[fold %d], '\
                                   '[RESULT]: VAL. Epoch: %d,' \
                                   ' val_loss: %.5f,' \
-                                  ' L_distance: %.5f,' \
+                                  ' acc: %.5f,' \
                                   ' time:%.5f' % (
                                    self.fold,
                                    epoch,
                                    summary_loss.avg,
-                                   distance_meter.avg,
+                                   accuracy_meter.avg,
                                    (time.time() - t))
           logger.info(val_epoch_log_message)
 
@@ -327,9 +312,9 @@ class Train(object):
       ###save the best auc model
 
       #### save the model every end of epoch
-      current_model_saved_name='./models/fold%d_epoch_%d_val_dis_%.6f_loss_%.6f.pth'%(self.fold,
+      current_model_saved_name='./models/fold%d_epoch_%d_val_acc_%.6f_loss_%.6f.pth'%(self.fold,
                                                                                             epoch,
-                                                                                            distance_meter.avg,
+                                                                                            accuracy_meter.avg,
                                                                                             summary_loss.avg)
 
       logger.info('A model saved to %s' % current_model_saved_name)
@@ -347,11 +332,7 @@ class Train(object):
           ###switch back to plain model to train next epoch
           self.optimizer.swap_swa_sgd()
 
-      if distance_meter.avg<best_distance:
-          best_distance=distance_meter.avg
-          logger.info(' best metric score update as %.6f' % (best_distance))
-      else:
-          not_improvement+=1
+      
 
       if not_improvement>=self.early_stop:
           logger.info(' best metric score not improvement for %d, break'%(self.early_stop))

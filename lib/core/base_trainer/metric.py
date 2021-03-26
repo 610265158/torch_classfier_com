@@ -58,4 +58,24 @@ class DISTANCEMeter(object):
         return np.mean(self.scores)
 
 
+class ACCMeter(object):
+    def __init__(self):
+        self.reset()
 
+    def reset(self):
+        self.y_true = None
+        self.y_pred = None
+
+
+    def update(self, y_true, y_pred):
+        if self.y_true is None:
+            self.y_true = y_true
+            self.y_pred = y_pred
+        else:
+            self.y_true=np.concatenate([self.y_true,y_true])
+            self.y_pred = np.concatenate([self.y_pred, y_pred])
+
+
+    @property
+    def avg(self):
+        return np.mean(self.y_true==self.y_pred)
