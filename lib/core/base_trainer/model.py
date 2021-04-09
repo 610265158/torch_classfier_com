@@ -1,36 +1,39 @@
-
 import torch
 import torch.nn as nn
 import timm
 import torchvision
 import torch.nn.functional as F
 
-import  numpy as np
-
-# model adapted from https://www.kaggle.com/mdteach/image-captioning-with-attention-pytorch/data
-
+import numpy as np
 
 
 class Encoder(nn.Module):
-    def __init__(self, model_name='tf_efficientnet_b0_ns', pretrained=True):
+    def __init__(self, model_name='tf_efficientnet_b3_ns', pretrained=True):
         super().__init__()
         self.cnn = timm.create_model(model_name, pretrained=pretrained)
 
-        self.reduce_head=nn.Sequential(nn.Conv2d(1280,512,kernel_size=1,stride=1,padding=0),
-                                       nn.BatchNorm2d(512,),
-                                       nn.ReLU(inplace=True))
+        self.reduce_head = nn.Sequential(nn.Conv2d(1536, 512, kernel_size=1, stride=1, padding=0, bias=False),
+                                         nn.BatchNorm2d(512, ),
+                                         nn.ReLU(inplace=True))
+
     def forward(self, x):
         bs = x.size(0)
-        x = x/255.
+        x = x / 255.
+        x = torch.cat([x,x,x],dim=1)
         features = self.cnn.forward_features(x)
         features = self.reduce_head(features)
-        features = features.permute(0, 2, 3, 1)
-        features = features.view(bs,-1,features.size(-1))
+        features = features.view(bs, features.size(1),-1,)
+
+        features = features.permute(0, 2, 1)
+
         return features
+
+
 class Attention(nn.Module):
     """
     Attention network for calculate attention value
     """
+
     def __init__(self, encoder_dim, decoder_dim, attention_dim):
         """
         :param encoder_dim: input size of encoder network
@@ -44,13 +47,21 @@ class Attention(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
 
-    def forward(self, encoder_out, decoder_hidden):
-        att1 = self.encoder_att(encoder_out)  # (batch_size, num_pixels, attention_dim)
+        self.pre_conv = None
+
+    def forward(self, encoder_out, decoder_hidden, t=0):
+        if t == 0:
+            att1 = self.encoder_att(encoder_out)
+            self.pre_conv = att1
+        else:
+            att1 = self.pre_conv
+
+        # att1 = self.encoder_att(encoder_out)  # (batch_size, num_pixels, attention_dim)
         att2 = self.decoder_att(decoder_hidden)  # (batch_size, attention_dim)
         att = self.full_att(self.relu(att1 + att2.unsqueeze(1))).squeeze(2)  # (batch_size, num_pixels)
         alpha = self.softmax(att)  # (batch_size, num_pixels)
         attention_weighted_encoding = (encoder_out * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
-        return attention_weighted_encoding, alpha
+        return attention_weighted_encoding
 
 
 class DecoderWithAttention(nn.Module):
@@ -81,8 +92,8 @@ class DecoderWithAttention(nn.Module):
         self.decode_step = nn.LSTMCell(embed_dim + encoder_dim, decoder_dim, bias=True)  # decoding LSTMCell
         self.init_h = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial hidden state of LSTMCell
         self.init_c = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial cell state of LSTMCell
-        self.f_beta = nn.Linear(decoder_dim, encoder_dim)  # linear layer to create a sigmoid-activated gate
-        self.sigmoid = nn.Sigmoid()
+        # self.f_beta = nn.Linear(decoder_dim, encoder_dim)  # linear layer to create a sigmoid-activated gate
+        # self.sigmoid = nn.Sigmoid()
         self.fc = nn.Linear(decoder_dim, vocab_size)  # linear layer to find scores over vocabulary
         self.init_weights()  # initialize some layers with the uniform distribution
 
@@ -104,15 +115,15 @@ class DecoderWithAttention(nn.Module):
         c = self.init_c(mean_encoder_out)
         return h, c
 
-    def forward(self, cnn_fatures, encoded_captions,label_length,max_length):
+    def forward(self, cnn_fatures, encoded_captions, label_length, max_length, tokenizer):
         """
         :param encoder_out: output of encoder network
         :param encoded_captions: transformed sequence from character to integer
 
         """
         batch_size = cnn_fatures.size(0)
-        num_pixels = cnn_fatures.size(1)
-        vocab_size = self.vocab_size
+        # num_pixels = cnn_fatures.size(1)
+        # vocab_size = self.vocab_size
 
         # embedding transformed sequence for vector
         embeddings = self.embedding(encoded_captions)  # (batch_size, max_caption_length, embed_dim)
@@ -120,30 +131,29 @@ class DecoderWithAttention(nn.Module):
         h, c = self.init_hidden_state(cnn_fatures)  # (batch_size, decoder_dim)
         # set decode length by caption length - 1 because of omitting start token
 
-        predictions = torch.zeros(batch_size,max_length, vocab_size).to(self.device)
-        alphas = torch.zeros(batch_size, max_length, num_pixels).to(self.device)
+        predictions_features = torch.zeros(batch_size, max_length, self.decoder_dim).to(self.device)
+        # alphas = torch.zeros(batch_size, max_length, num_pixels).to(self.device)
 
-        max_seq_length_in_batch=torch.max(label_length)
+        max_seq_length_in_batch = torch.max(label_length)
 
         # predict sequence
         for t in range(max_seq_length_in_batch):
-
-            attention_weighted_encoding, alpha = self.attention(cnn_fatures, h)
+            attention_weighted_encoding = self.attention(cnn_fatures, h, t)
             # gate = self.sigmoid(self.f_beta(h[:]))  # gating scalar, (batch_size_t, encoder_dim)
             # attention_weighted_encoding = gate * attention_weighted_encoding
             h, c = self.decode_step(
                 torch.cat([embeddings[:, t, :], attention_weighted_encoding], dim=1),
-                (h[:], c[:]))  # (batch_size_t, decoder_dim)
-            preds = self.fc(self.dropout(h))  # (batch_size_t, vocab_size)
-            predictions[:, t, :] = preds
-            alphas[:, t, :] = alpha
-        return predictions, alphas
+                (h, c))  # (batch_size_t, decoder_dim)
+
+            predictions_features[:, t, :] = h
+            # alphas[:, t, :] = alpha
+        predictions = self.fc(self.dropout(predictions_features))  # (batch_size_t, vocab_size)
+        return predictions, 1
 
     def predict(self, cnn_fatures, decode_lengths, tokenizer):
         batch_size = cnn_fatures.size(0)
 
         vocab_size = self.vocab_size
-
 
         # embed start tocken for LSTM input
         start_tockens = torch.ones(batch_size, dtype=torch.long).to(self.device) * tokenizer.stoi["<sos>"]
@@ -152,8 +162,10 @@ class DecoderWithAttention(nn.Module):
         h, c = self.init_hidden_state(cnn_fatures)  # (batch_size, decoder_dim)
         predictions = torch.zeros(batch_size, decode_lengths, vocab_size).to(self.device)
         # predict sequence
+
+        stop_flag = torch.zeros(size=[batch_size])
         for t in range(decode_lengths):
-            attention_weighted_encoding, alpha = self.attention(cnn_fatures, h)
+            attention_weighted_encoding = self.attention(cnn_fatures, h, t)
             # gate = self.sigmoid(self.f_beta(h))  # gating scalar, (batch_size_t, encoder_dim)
             # attention_weighted_encoding = gate * attention_weighted_encoding
             h, c = self.decode_step(
@@ -161,8 +173,13 @@ class DecoderWithAttention(nn.Module):
                 (h, c))  # (batch_size_t, decoder_dim)
             preds = self.fc(self.dropout(h))  # (batch_size_t, vocab_size)
             predictions[:, t, :] = preds
-            if np.argmax(preds.detach().cpu().numpy()) == tokenizer.stoi["<eos>"]:
+
+            bool_mask = torch.argmax(preds, -1) == tokenizer.stoi["<eos>"]
+            stop_flag[bool_mask] = 1
+
+            if torch.sum(stop_flag) == batch_size:
                 break
+
             embeddings = self.embedding(torch.argmax(preds, -1))
         return predictions
 
@@ -179,18 +196,20 @@ class Caption(nn.Module):
                  tokenizer,
                  ):
         super().__init__()
-        device=torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-        self.encoder=Encoder()
-        self.decoder=DecoderWithAttention(attention_dim, embed_dim, decoder_dim, vocab_size, device, encoder_dim=encoder_dim, dropout=dropout)
-        self.token=tokenizer
+        device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+        self.encoder = Encoder()
+        self.decoder = DecoderWithAttention(attention_dim, embed_dim, decoder_dim, vocab_size, device,
+                                            encoder_dim=encoder_dim, dropout=dropout)
+        self.token = tokenizer
 
-        self.max_length=max_length
-    def forward(self, images,labels=None,label_length=None):
+        self.max_length = max_length
+
+    def forward(self, images, labels=None, label_length=None):
 
         if labels is not None:
 
             features = self.encoder(images)
-            predictions, alphas = self.decoder(features, labels,label_length,self.max_length)
+            predictions, alphas = self.decoder(features, labels, label_length, self.max_length, self.token)
 
             return predictions
         else:
@@ -200,9 +219,7 @@ class Caption(nn.Module):
             return predictions
 
 
-
-
-if __name__=='__main__':
+if __name__ == '__main__':
     dummy_input = torch.randn(2, 3, 256, 256, device='cpu')
     embed_dim = 200
     vocab_size = 193  ##len(vocab)
@@ -210,8 +227,10 @@ if __name__=='__main__':
     encoder_dim = 512
     decoder_dim = 300
     import sys
+
     sys.path.append('.')
     from make_data import Tokenizer
+
 
     def get_token():
         token_tools = Tokenizer()
@@ -222,7 +241,7 @@ if __name__=='__main__':
 
 
     token_tools = get_token()
-    device=torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
     model = Caption(
         embed_dim=embed_dim,

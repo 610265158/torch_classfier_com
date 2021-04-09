@@ -45,7 +45,6 @@ class AlaskaDataIter():
 
         self.train_trans=A.Compose([A.Resize(height=cfg.MODEL.height,
                                            width=cfg.MODEL.width),
-                                A.RandomRotate90(p=0.5)
 
 
 
@@ -100,51 +99,6 @@ class AlaskaDataIter():
 
         return image
 
-    def cutout(self,src,cover, max_pattern_ratio=0.05):
-        cover_raw=np.array(cover)
-        width_ratio = random.uniform(0, max_pattern_ratio)
-        height_ratio = random.uniform(0, max_pattern_ratio)
-        width = src.shape[1]
-        height = src.shape[0]
-        block_width = (width * width_ratio)//8*8
-        block_height = (height * height_ratio)//8*8
-        width_start = int(random.uniform(0, width - block_width))
-        width_end = int(width_start + block_width)
-        height_start = int(random.uniform(0, height - block_height))
-        height_end = int(height_start + block_height)
-
-
-        random_cover_pitch = cover[height_start:height_end, width_start:width_end, :]
-        random_stego_pitch = src[height_start:height_end, width_start:width_end, :]
-
-        src[height_start:height_end, width_start:width_end, :]= random_cover_pitch
-
-        cover[height_start:height_end, width_start:width_end, :] = random_stego_pitch
-
-        return src,cover,cover_raw
-
-    def random_dash(self,src,how_many=8,block_size=64):
-
-        ### we get the mask first
-
-        def get_random_mask(image, block_size=32):
-
-            h,w,c=image.shape
-            mask = np.ones_like(image, dtype=np.uint8)
-            for i in range(how_many):
-
-                start_x = int(random.uniform(0,w-block_size))
-                start_y = int(random.uniform(0, w - block_size))
-
-                mask[start_y:start_y+block_size,start_x:start_x+block_size,:]=0
-            return mask
-
-        mask=get_random_mask(src,block_size)
-
-        masked_src=src*mask
-
-
-        return masked_src
 
 
 
@@ -161,40 +115,43 @@ class AlaskaDataIter():
 
         return image_resized
 
+    def addSaltNoise(self,image,SNR=0.99):
 
-    def get_seg_label(self,image,extra_label, divide=4):
+        if SNR==1:
+            return image
 
-        h,w=image.shape
-        seg_label=np.zeros([h//divide,w//divide,11])
+        h,w = image.shape
 
-        ann=0
-        for i in range(len(extra_label)):
-            one_tap=np.zeros([h//divide,w//divide])
+        noiseSize = int(h*w * (1 - SNR))
 
-            points=np.array(extra_label[i]['transkps'])//divide
-            label=extra_label[i]['label']
-            if label!=-1:
-                ann=1
-                for j in range(points.shape[0]-1):
-                    cv2.line(one_tap,pt1=(int(points[j][0]),int(points[j][1])),
-                             pt2=(int(points[j+1][0]),int(points[j+1][1])),
-                             color=(255))
+        for k in range(0, noiseSize):
 
-                one_tap = cv2.blur(one_tap, ksize=(5, 5))
-                one_tap[one_tap>0]=1
-                seg_label[:,:,label]=one_tap
+            xi = int(np.random.uniform(0, image.shape[1]))
+            xj = int(np.random.uniform(0, image.shape[0]))
 
+            image[xj, xi] = 0
 
-        return seg_label,ann
-    def letterbox(self,image):
-        h,w=image.shape
+        return image
 
-        size=max(h,w)
-        image_container=np.zeros(shape=[size,size],dtype=np.uint8)+255
+    def letterbox(self, image, target_shape=(cfg.MODEL.height, cfg.MODEL.width)):
 
-        image_container[(size-h)//2:(size-h)//2+h,(size-w)//2:(size-w)//2+w]=image
+        h, w = image.shape
+
+        if h / w >= target_shape[0] / target_shape[1]:
+            size = (h, int((target_shape[1]/target_shape[0]) * h))
+
+            image_container = np.zeros(shape=size, dtype=np.uint8) + 255
+
+            image_container[:, (size[1] - w) // 2:(size[1] - w) // 2 + w] = image
+        else:
+            size = (int(w / (target_shape[1]/target_shape[0])), w)
+
+            image_container = np.zeros(shape=size, dtype=np.uint8) + 255
+
+            image_container[(size[0] - h) // 2:(size[0] - h) // 2 + h, :] = image
 
         return image_container
+
     def single_map_func(self, dp, is_training):
         """Data augmentation function."""
         ####customed here
@@ -202,11 +159,17 @@ class AlaskaDataIter():
 
         fname = dp['file_path']
         label = dp['InChI_text']
-
+        InChI =dp['InChI']
         image_raw = cv2.imread(fname,-1)
+
+        edge = 25
+        image_raw = image_raw[edge:-edge, edge:-edge]
+
+        if is_training:
+            if random.uniform(0,1)>0.5:
+                image_raw=self.addSaltNoise(image_raw,random.uniform(0.995,1))
+
         image_raw = self.letterbox(image_raw)
-
-
 
         ### make label
         label_padding = np.zeros(shape=[cfg.MODEL.train_length]) + self.word_tool.stoi['<pad>']
@@ -223,11 +186,17 @@ class AlaskaDataIter():
             transformed=self.train_trans(image=image_raw)
 
             image=transformed['image']
+            image = np.expand_dims(image, 0)
+
+            return 255 - image, label_padding, label_length
+
 
         else:
             transformed = self.val_trans(image=image_raw)
 
             image = transformed['image']
-        image = np.stack([image, image, image], 0)
-        return 255-image, label_padding,label_length
+            image = np.expand_dims(image, 0)
+
+
+            return 255 - image, label_padding, label_length, str(InChI)
 
