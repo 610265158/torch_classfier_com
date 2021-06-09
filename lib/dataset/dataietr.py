@@ -6,6 +6,7 @@ import json
 import numpy as np
 import copy
 
+from lib.utils.logger import logger
 from train_config import config as cfg
 import albumentations as A
 import os
@@ -28,7 +29,7 @@ class AlaskaDataIter():
 
         self.df=df
         #
-        # logger.info('after balance contains%d samples'%len(self.lst))
+        logger.info(' contains%d samples'%len(self.df))
         self.train_trans=A.Compose([   A.Resize(height=cfg.MODEL.height,
                                            width=cfg.MODEL.width)
                               ])
