@@ -1,7 +1,8 @@
 import sklearn
 from sklearn import metrics
 from sklearn.metrics import confusion_matrix
-
+import sys
+sys.path.append('.')
 import numpy as np
 import torch.nn as nn
 from train_config import config as cfg
@@ -54,7 +55,6 @@ class ROCAUCMeter(object):
         y_pred = torch.sigmoid(y_pred).data.cpu().numpy()
 
 
-
         if self.y_true_11 is None:
             self.y_true_11 = y_true
             self.y_pred_11 = y_pred
@@ -63,21 +63,34 @@ class ROCAUCMeter(object):
             self.y_pred_11 = np.concatenate((self.y_pred_11, y_pred),axis=0)
 
     def fast_auc(self,y_true, y_prob):
+
+
         y_true = np.asarray(y_true)
         y_true = y_true[np.argsort(y_prob)]
         cumfalses = np.cumsum(1 - y_true)
         nfalse = cumfalses[-1]
         auc = (y_true * cumfalses).sum()
+
+
         auc /= (nfalse * (len(y_true) - nfalse))
         return auc
 
     @property
     def avg(self):
 
+        self.y_true_11=self.y_true_11.reshape(-1)
+        self.y_pred_11 = self.y_pred_11.reshape(-1)
         score=self.fast_auc(self.y_true_11,self.y_pred_11)
 
-        
         return score
 
 
 
+if __name__=='__main__':
+    ROCAUC_score = ROCAUCMeter()
+
+    y_true = np.random.randint(2, size=10000)
+    y_prob = np.random.rand(10000)
+
+    ROCAUC_score.update(y_true,y_prob)
+    print(ROCAUC_score.avg)
