@@ -6,21 +6,6 @@ import json
 import numpy as np
 import copy
 
-from lib.utils.logger import logger
-from tensorpack.dataflow import DataFromGenerator, BatchData, MultiProcessPrefetchData, PrefetchDataZMQ, RepeatedData
-import time
-
-import traceback
-from lib.dataset.augmentor.augmentation import Rotate_aug,\
-                                                Affine_aug,\
-                                                Mirror,\
-                                                Padding_aug,\
-                                                Img_dropout,Random_crop
-
-
-
-from lib.dataset.augmentor.visual_augmentation import ColorDistort,pixel_jitter
-
 from train_config import config as cfg
 import albumentations as A
 import os
@@ -81,7 +66,8 @@ class AlaskaDataIter():
         img = np.load(fname)[[0, 2, 4]]  # shape: (3, 273, 256)
         img = np.stack(img,axis=0)
 
-        print(img.shape)
+
 
         label = np.array(label,dtype=np.int)
+        label =np.expand_dims(label,0)
         return img,label

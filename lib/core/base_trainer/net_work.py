@@ -29,7 +29,7 @@ from lib.core.base_trainer.model import Net
 from torch.utils.data.distributed import DistributedSampler
 
 from tqdm import tqdm
-# torch.distributed.init_process_group(backend="nccl")
+torch.distributed.init_process_group(backend="nccl")
 
 if cfg.TRAIN.mix_precision:
     from apex import amp
@@ -42,8 +42,7 @@ class Train(object):
     def __init__(self,
                  train_df,
                  val_df,
-                 fold,
-                 tokenizer):
+                 fold):
 
         self.train_generator = AlaskaDataIter(train_df, training_flag=True, shuffle=False)
         self.train_ds = DataLoader(self.train_generator,
@@ -178,7 +177,7 @@ class Train(object):
                 start = time.time()
 
                 data = images.to(self.device).float()
-                label = label.to(self.device).long()
+                label = label.to(self.device).float()
 
                 batch_size = data.shape[0]
 
@@ -236,7 +235,7 @@ class Train(object):
 
 
                     data = images.to(self.device).float()
-                    labels = labels.to(self.device).long()
+                    labels = labels.to(self.device).float()
                     batch_size = data.shape[0]
 
                     predictions = self.model(data)
