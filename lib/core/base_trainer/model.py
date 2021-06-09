@@ -14,27 +14,18 @@ import timm
 
 
 class Net(nn.Module):
-    def __init__(self, num_classes=cfg.MODEL.num_class):
+    def __init__(self, num_classes=1):
         super().__init__()
 
-        # self.mean_tensor=torch.from_numpy(cfg.DATA.PIXEL_MEAN ).float().cuda()
-        # self.std_val_tensor = torch.from_numpy(cfg.DATA.PIXEL_STD).float().cuda()
-        # self.model = EfficientNet.from_pretrained(model_name='efficientnet-b0')
-        self.model = timm.create_model('tf_efficientnet_b5_ns', pretrained=True)
-        # self.model = timm.create_model('hrnet_w32', pretrained=True)
 
+        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True)
 
-
-
-        ##conv head as 512
-        # self.model.conv_head = nn.Conv2d(320, 512, kernel_size=1, padding=0,stride=1)
-        # self.model.bn2 = nn.BatchNorm2d(512, eps=1e-5,momentum=0.01)
 
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
 
         self.dropout=nn.Dropout(0.5)
 
-        self._fc = nn.Linear(2048 , num_classes, bias=True)
+        self._fc = nn.Linear(1280 , num_classes, bias=True)
 
     def forward(self, inputs):
 

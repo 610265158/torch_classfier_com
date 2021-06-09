@@ -12,6 +12,7 @@ import torch.nn as nn
 from sklearn.metrics import roc_auc_score
 from lib.utils.logger import logger
 
+
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -32,6 +33,11 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+
+
+
+
+
 
 class ROCAUCMeter(object):
     def __init__(self):
@@ -56,17 +62,22 @@ class ROCAUCMeter(object):
             self.y_true_11 = np.concatenate((self.y_true_11, y_true),axis=0)
             self.y_pred_11 = np.concatenate((self.y_pred_11, y_pred),axis=0)
 
+    def fast_auc(self,y_true, y_prob):
+        y_true = np.asarray(y_true)
+        y_true = y_true[np.argsort(y_prob)]
+        cumfalses = np.cumsum(1 - y_true)
+        nfalse = cumfalses[-1]
+        auc = (y_true * cumfalses).sum()
+        auc /= (nfalse * (len(y_true) - nfalse))
+        return auc
 
     @property
     def avg(self):
 
-        aucs = []
-        for i in range(11):
-            aucs.append(roc_auc_score(self.y_true_11[:,i], self.y_pred_11[:, i]))
-        print(np.round(aucs, 4))
+        score=self.fast_auc(self.y_true_11,self.y_pred_11)
 
         
-        return np.mean(aucs)
+        return score
 
 
 
