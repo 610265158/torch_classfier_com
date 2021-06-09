@@ -31,8 +31,9 @@ def main():
         def filter(image_id):
             return '/0/' in image_id
 
-        choose_index=data['file_path'].apply(filter)
-        data=data.loc[choose_index]
+        if cfg.TRAIN.vis:
+            choose_index=data['file_path'].apply(filter)
+            data=data.loc[choose_index]
 
         folds = data.copy()
         Fold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.SEED)
