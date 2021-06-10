@@ -17,7 +17,7 @@ from train_config import config as cfg
 from lib.core.base_trainer.metric import *
 import torch
 import torch.nn.functional as F
-from lib.core.model.mix.fmix import FMix
+from lib.core.model.mix.mix import mixup,mixup_criterion
 from torchcontrib.optim import SWA
 
 
@@ -136,7 +136,6 @@ class Train(object):
 
 
 
-        self.fmix = FMix(loss_function=self.criterion, size=(cfg.MODEL.height, cfg.MODEL.width))
 
     def custom_loop(self):
         """Custom training and testing loop.
@@ -180,12 +179,16 @@ class Train(object):
                 label = label.to(self.device).float()
 
                 batch_size = data.shape[0]
+                if np.random.uniform(0,1) < cfg.TRAIN.mixup:
+                    mixed_data, mix_target = mixup(data, label,alpha=1.)
+                    outputs =self.model(mixed_data)
+                    current_loss = mixup_criterion(outputs,mix_target,self.criterion)
+                else:
+                    predictions = self.model(data)
 
-                predictions = self.model(data)
 
 
-
-                current_loss = self.criterion(predictions, label)
+                    current_loss = self.criterion(predictions, label)
 
                 summary_loss.update(current_loss.detach().item(), batch_size)
 

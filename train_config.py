@@ -21,7 +21,7 @@ config.TRAIN.test_interval = 1
 config.TRAIN.epoch = 15
 
 config.TRAIN.init_lr=0.001
-config.TRAIN.lr_scheduler='ReduceLROnPlateau'        ### cos or ReduceLROnPlateau
+config.TRAIN.lr_scheduler='cos'        ### cos or ReduceLROnPlateau
 
 
 if config.TRAIN.lr_scheduler=='ReduceLROnPlateau':
@@ -36,7 +36,7 @@ config.TRAIN.warmup_step=1500
 config.TRAIN.opt='Adamw'
 config.TRAIN.SWA=-1    ### -1 use no swa   from which epoch start SWA
 config.TRAIN.gradient_clip=5
-
+config.TRAIN.mixup=0.5
 
 
 
