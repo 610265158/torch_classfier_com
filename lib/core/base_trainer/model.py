@@ -18,7 +18,8 @@ class Net(nn.Module):
         super().__init__()
 
 
-        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True)
+        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True,in_chans=6)
+
 
 
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
@@ -31,7 +32,7 @@ class Net(nn.Module):
 
         #do preprocess
 
-        inputs=inputs/255.
+
         bs = inputs.size(0)
         # Convolution layers
         x = self.model.forward_features(inputs)

@@ -28,10 +28,18 @@ class AlaskaDataIter():
 
 
         self.df=df
+        logger.info(' contains%d samples  %d pos' %( len(self.df), np.sum(self.df['target']==1)))
+
+
         #
         logger.info(' contains%d samples'%len(self.df))
-        self.train_trans=A.Compose([   A.Resize(height=cfg.MODEL.height,
-                                           width=cfg.MODEL.width)
+        self.train_trans=A.Compose([
+                                    A.CoarseDropout(max_width=32,max_height=32,max_holes=8),
+                                    A.ShiftScaleRotate(shift_limit=0.1,
+                                                       scale_limit=0.1,
+                                                       rotate_limit=0,
+                                                       p=0.8)
+
                               ])
 
 
@@ -64,10 +72,18 @@ class AlaskaDataIter():
 
 
 
-        img = np.load(fname)[[0, 2, 4]]  # shape: (3, 273, 256)
-        img = np.stack(img,axis=0)
+        img = np.load(fname).astype(np.float32)
+        img = np.transpose(img,[0,2,1])
 
 
+        img = np.transpose(img,[1,2,0])
+
+        if is_training:
+            transformed = self.train_trans(image=img)
+
+            img = transformed['image']
+
+        img = np.transpose(img, [2,0,1])
 
         label = np.array(label,dtype=np.int)
         label =np.expand_dims(label,0)

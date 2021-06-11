@@ -13,12 +13,12 @@ config.TRAIN.process_num = 4
 
 ############
 
-config.TRAIN.batch_size = 16
-config.TRAIN.validatiojn_batch_size = config.TRAIN.batch_size*10
+config.TRAIN.batch_size = 48
+config.TRAIN.validatiojn_batch_size = config.TRAIN.batch_size
 config.TRAIN.accumulation_batch_size = 128
 config.TRAIN.log_interval = 10                  ##10 iters for a log msg
 config.TRAIN.test_interval = 1
-config.TRAIN.epoch = 15
+config.TRAIN.epoch = 20
 
 config.TRAIN.init_lr=0.001
 config.TRAIN.lr_scheduler='cos'        ### cos or ReduceLROnPlateau
@@ -36,7 +36,7 @@ config.TRAIN.warmup_step=1500
 config.TRAIN.opt='Adamw'
 config.TRAIN.SWA=-1    ### -1 use no swa   from which epoch start SWA
 config.TRAIN.gradient_clip=5
-config.TRAIN.mixup=0.5
+config.TRAIN.mixup=1.
 
 
 
@@ -82,7 +82,7 @@ config.MODEL.ema=False
 config.MODEL.focal_loss=False
 
 
-config.SEED=42
+config.SEED=1086
 
 
 from lib.utils.seed_utils import seed_everything
