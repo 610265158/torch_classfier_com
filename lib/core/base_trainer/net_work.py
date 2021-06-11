@@ -332,7 +332,7 @@ class Train(object):
             if roc_auc_score.avg > best_distance:
                 best_distance = roc_auc_score.avg
                 logger.info(' best metric score update as %.6f' % (best_distance))
-                logger.info(' best model update as %s' % (current_model_saved_name))
+                logger.info(' bestmodel update as %s' % (current_model_saved_name))
                 not_improvement=0
             else:
                 not_improvement += 1
