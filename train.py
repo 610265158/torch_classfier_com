@@ -15,6 +15,7 @@ import setproctitle
 setproctitle.setproctitle("comp")
 
 
+
 def fast_auc( y_true, y_prob):
     y_true = np.asarray(y_true)
     y_true = y_true[np.argsort(y_prob)]
@@ -35,8 +36,11 @@ def run_oof_cscore(n_fold):
         y_true.append(cur_oof['gt'])
         y_pre.append(cur_oof['pre'])
 
-    y_true=np.array(y_true).reshape([-1])
-    y_pre=np.array(y_pre).reshape([-1])
+    y_true=np.concatenate(y_true).reshape([-1])
+    y_pre=np.concatenate(y_pre).reshape([-1])
+
+    print(y_true.shape)
+    print(y_pre.shape)
     score=fast_auc(y_true,y_pre)
 
     return score
