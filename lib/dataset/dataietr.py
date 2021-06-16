@@ -34,21 +34,44 @@ class AlaskaDataIter():
         #
         logger.info(' contains%d samples'%len(self.df))
         self.train_trans=A.Compose([
-                                    A.CoarseDropout(max_width=32,max_height=32,max_holes=8),
-                                    A.ShiftScaleRotate(shift_limit=0.1,
-                                                       scale_limit=0.1,
+                                    A.CoarseDropout(max_holes=9,max_height=32,max_width=32,p=0.5),
+                                    A.ShiftScaleRotate(shift_limit=0.2,
+                                                       scale_limit=0.2,
                                                        rotate_limit=0,
-                                                       p=0.8)
+                                                       p=0.8),
+                                    A.RandomBrightnessContrast(brightness_limit=0.1,contrast_limit=0.1,p=0.5),
+                                    A.HorizontalFlip(p=0.5),
+                                    A.VerticalFlip(p=0.5),
+
 
                               ])
 
+    def add_noise(self,image):
+        h,w=image.shape
 
-        self.val_trans=A.Compose([
 
-                                   A.Resize(height=cfg.MODEL.height,
-                                           width=cfg.MODEL.width)
 
-                                  ])
+        start=int(random.uniform(0,w))
+
+
+        max_value=np.max(image)
+
+        hightlight_patter=np.zeros(shape=[h])+max_value
+
+        # how_many_cycle=int(random.uniform(0,10))
+        #
+        # total=how_many_cycle*360
+        #
+        # noise_patter=np.arange(0,total)
+
+        image[:,start]=hightlight_patter
+
+        return image
+
+
+
+
+
 
 
     def __getitem__(self, item):
@@ -70,21 +93,21 @@ class AlaskaDataIter():
         fname = dp['file_path']
         label = dp['target']
 
+        img = np.load(fname).astype(np.float32)[[0, 2, 4]]  # shape: (3, 273, 256)
+
+        img = np.vstack(img)  # shape: (819, 256)
 
 
-        img = np.load(fname).astype(np.float32)
-        img = np.transpose(img,[0,2,1])
+        if random.uniform(0,1)>0.5:
+            img=self.add_noise(img)
 
-
-        img = np.transpose(img,[1,2,0])
 
         if is_training:
             transformed = self.train_trans(image=img)
 
             img = transformed['image']
 
-        img = np.transpose(img, [2,0,1])
-
+        img = np.expand_dims(img, 0)
         label = np.array(label,dtype=np.int)
         label =np.expand_dims(label,0)
         return img,label

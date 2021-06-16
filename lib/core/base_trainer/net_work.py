@@ -29,7 +29,7 @@ from lib.core.base_trainer.model import Net
 from torch.utils.data.distributed import DistributedSampler
 
 from tqdm import tqdm
-torch.distributed.init_process_group(backend="nccl")
+#
 
 if cfg.TRAIN.mix_precision:
     from apex import amp
@@ -44,20 +44,43 @@ class Train(object):
                  val_df,
                  fold):
 
-        self.train_generator = AlaskaDataIter(train_df, training_flag=True, shuffle=False)
-        self.train_ds = DataLoader(self.train_generator,
-                                   cfg.TRAIN.batch_size,
-                                   num_workers=cfg.TRAIN.process_num,
-                                   sampler=DistributedSampler(self.train_generator,
-                                                              shuffle=True))
+        self.ddp=False
 
-        self.val_generator = AlaskaDataIter(val_df, training_flag=False, shuffle=False)
 
-        self.val_ds = DataLoader(self.val_generator,
-                                 cfg.TRAIN.validatiojn_batch_size,
-                                 num_workers=cfg.TRAIN.process_num,
-                                 sampler=DistributedSampler(self.val_generator,
-                                                            shuffle=False))
+        if self.ddp:
+            torch.distributed.init_process_group(backend="nccl")
+            self.train_generator = AlaskaDataIter(train_df, training_flag=True, shuffle=False)
+            self.train_ds = DataLoader(self.train_generator,
+                                       cfg.TRAIN.batch_size,
+                                       num_workers=cfg.TRAIN.process_num,
+                                       sampler=DistributedSampler(self.train_generator,
+                                                                  shuffle=True))
+
+            self.val_generator = AlaskaDataIter(val_df, training_flag=False, shuffle=False)
+
+            self.val_ds = DataLoader(self.val_generator,
+                                     cfg.TRAIN.validatiojn_batch_size,
+                                     num_workers=cfg.TRAIN.process_num,
+                                     sampler=DistributedSampler(self.val_generator,
+                                                                shuffle=False))
+            local_rank = torch.distributed.get_rank()
+            torch.cuda.set_device(local_rank)
+            self.device = torch.device("cuda", local_rank)
+
+
+        else:
+            self.train_generator = AlaskaDataIter(train_df, training_flag=True, shuffle=False)
+            self.train_ds = DataLoader(self.train_generator,
+                                       cfg.TRAIN.batch_size,
+                                       num_workers=cfg.TRAIN.process_num,shuffle=True)
+
+            self.val_generator = AlaskaDataIter(val_df, training_flag=False, shuffle=False)
+
+            self.val_ds = DataLoader(self.val_generator,
+                                     cfg.TRAIN.validatiojn_batch_size,
+                                     num_workers=cfg.TRAIN.process_num,shuffle=False)
+
+            self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
         self.fold = fold
 
@@ -70,16 +93,13 @@ class Train(object):
         self.early_stop = cfg.MODEL.early_stop
 
         self.accumulation_step = cfg.TRAIN.accumulation_batch_size // cfg.TRAIN.batch_size
-        # self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+
 
         self.gradient_clip = cfg.TRAIN.gradient_clip
 
         self.save_dir=cfg.MODEL.model_path
         #### make the device
 
-        local_rank = torch.distributed.get_rank()
-        torch.cuda.set_device(local_rank)
-        self.device = torch.device("cuda", local_rank)
 
 
         self.model = Net().to(self.device)
@@ -104,10 +124,13 @@ class Train(object):
         if cfg.TRAIN.mix_precision:
             self.model, self.optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
 
-        self.model = torch.nn.parallel.DistributedDataParallel(self.model,
-                                                               device_ids=[local_rank],
-                                                               output_device=local_rank,
-                                                               find_unused_parameters=True)
+        if self.ddp:
+            self.model = torch.nn.parallel.DistributedDataParallel(self.model,
+                                                                   device_ids=[local_rank],
+                                                                   output_device=local_rank,
+                                                                   find_unused_parameters=True)
+        else:
+            self.model=nn.DataParallel(self.model)
 
         self.ema = EMA(self.model, 0.97)
 
