@@ -357,6 +357,14 @@ class Train(object):
                 logger.info(' best metric score update as %.6f' % (best_distance))
                 logger.info(' bestmodel update as %s' % (current_model_saved_name))
                 not_improvement=0
+
+                csv_fname='fold%d_oof.csv'%self.fold
+                oof=pd.DataFrame()
+                oof['gt']=roc_auc_score.y_true_11
+                oof['pre'] = roc_auc_score.y_pred_11
+
+                oof.to_csv(csv_fname,index=False)
+
             else:
                 not_improvement += 1
 

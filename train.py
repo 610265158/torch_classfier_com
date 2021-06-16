@@ -15,6 +15,31 @@ import setproctitle
 setproctitle.setproctitle("comp")
 
 
+def fast_auc( y_true, y_prob):
+    y_true = np.asarray(y_true)
+    y_true = y_true[np.argsort(y_prob)]
+    cumfalses = np.cumsum(1 - y_true)
+    nfalse = cumfalses[-1]
+    auc = (y_true * cumfalses).sum()
+
+    auc /= (nfalse * (len(y_true) - nfalse))
+    return auc
+
+
+def run_oof_cscore(n_fold):
+
+    y_true=[]
+    y_pre=[]
+    for i in range(n_fold):
+        cur_oof=pd.read_csv('fold%d_oof.csv'%i)
+        y_true.append(cur_oof['gt'])
+        y_pre.append(cur_oof['pre'])
+
+    y_true=np.array(y_true).reshape([-1])
+    y_pre=np.array(y_pre).reshape([-1])
+    score=fast_auc(y_true,y_pre)
+
+    return score
 def main():
     n_fold=5
     def get_fold(n_fold=n_fold):
@@ -91,6 +116,18 @@ def main():
 
         ### train
         trainer.custom_loop()
+
+
+
+
+    oof_score=run_oof_cscore(n_fold)
+
+    print('5 folds oof score ', oof_score)
+
+    
+
+
+
 
 if __name__=='__main__':
     main()
