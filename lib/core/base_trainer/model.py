@@ -12,13 +12,23 @@ from train_config import config as cfg
 
 import timm
 
+class CTC(nn.Module):
+    def __init__(self,):
+
+
+
+        self.fc=nn.Linear(7,1)
+        ##
+    def forward(self, inputs):
+        ##input size is bsx1280x7x7
+        input_mean=torch.mean(inputs,dim=2)
 
 class Net(nn.Module):
     def __init__(self, num_classes=1):
         super().__init__()
 
 
-        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True,in_chans=6)
+        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True)
 
 
 
@@ -34,6 +44,7 @@ class Net(nn.Module):
 
 
         bs = inputs.size(0)
+        inputs=torch.cat([inputs,inputs,inputs],dim=1)
         # Convolution layers
         x = self.model.forward_features(inputs)
         fm = self._avg_pooling(x)

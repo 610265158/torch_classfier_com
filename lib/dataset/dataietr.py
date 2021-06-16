@@ -98,8 +98,7 @@ class AlaskaDataIter():
         img = np.vstack(img)  # shape: (819, 256)
 
 
-        if random.uniform(0,1)>0.5:
-            img=self.add_noise(img)
+
 
 
         if is_training:
