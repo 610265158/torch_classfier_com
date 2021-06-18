@@ -42,9 +42,15 @@ class AlaskaDataIter():
                                     A.RandomBrightnessContrast(brightness_limit=0.1,contrast_limit=0.1,p=0.5),
                                     A.HorizontalFlip(p=0.5),
                                     A.VerticalFlip(p=0.5),
-
+                                    A.Resize(height=512,width=512)
 
                               ])
+
+        self.val_trans = A.Compose([
+
+            A.Resize(height=512, width=512)
+
+        ])
 
     def add_noise(self,image):
         h,w=image.shape
@@ -98,14 +104,14 @@ class AlaskaDataIter():
         img = np.vstack(img)  # shape: (819, 256)
 
 
-
-
-
         if is_training:
             transformed = self.train_trans(image=img)
 
             img = transformed['image']
+        else:
+            transformed = self.val_trans(image=img)
 
+            img = transformed['image']
         img = np.expand_dims(img, 0)
         label = np.array(label,dtype=np.int)
         label =np.expand_dims(label,0)
