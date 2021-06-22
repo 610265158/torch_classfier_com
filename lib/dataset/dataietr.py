@@ -34,14 +34,16 @@ class AlaskaDataIter():
         #
         logger.info(' contains%d samples'%len(self.df))
         self.train_trans=A.Compose([
-                                    A.CoarseDropout(max_holes=9,max_height=32,max_width=32,p=0.5),
-                                    A.ShiftScaleRotate(shift_limit=0.2,
-                                                       scale_limit=0.2,
+
+
+                                    A.ShiftScaleRotate(shift_limit=0.1,
+                                                       scale_limit=0.1,
                                                        rotate_limit=0,
                                                        p=0.8),
-                                    A.RandomBrightnessContrast(brightness_limit=0.1,contrast_limit=0.1,p=0.5),
+
                                     A.HorizontalFlip(p=0.5),
-                                    A.VerticalFlip(p=0.5),
+                                    #A.VerticalFlip(p=0.5),
+
                                     A.Resize(height=512,width=512)
 
                               ])
