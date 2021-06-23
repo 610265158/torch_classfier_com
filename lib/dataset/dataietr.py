@@ -58,7 +58,6 @@ class AlaskaDataIter():
         h,w=image.shape
 
 
-
         start=int(random.uniform(0,w))
 
 
@@ -101,7 +100,12 @@ class AlaskaDataIter():
         fname = dp['file_path']
         label = dp['target']
 
-        img = np.load(fname).astype(np.float32)[[0, 2, 4]]  # shape: (3, 273, 256)
+        choose_index=[0,2,4]
+
+        if is_training:
+            random.shuffle(choose_index)
+
+        img = np.load(fname).astype(np.float32)[choose_index]  # shape: (3, 273, 256)
 
         img = np.vstack(img)  # shape: (819, 256)
 
