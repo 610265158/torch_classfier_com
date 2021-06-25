@@ -28,7 +28,19 @@ class Net(nn.Module):
         super().__init__()
 
 
-        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True)
+
+
+
+        self.pre_conv=nn.Sequential(nn.Conv2d(1, 3, 3, stride=1, padding=1, bias=False),
+                                    nn.BatchNorm2d(3),
+                                    nn.ReLU6(),
+                                    nn.Conv2d(3, 3, 3, stride=1, padding=1, bias=False),
+                                    nn.BatchNorm2d(3),
+                                    nn.ReLU6(),
+
+
+                                    )
+        self.model = timm.create_model('tf_efficientnetv2_s_21ft1k', pretrained=True)
 
 
 
@@ -44,7 +56,7 @@ class Net(nn.Module):
 
 
         bs = inputs.size(0)
-        inputs=torch.cat([inputs,inputs,inputs],dim=1)
+        inputs=self.pre_conv(inputs)
         # Convolution layers
         x = self.model.forward_features(inputs)
         fm = self._avg_pooling(x)
