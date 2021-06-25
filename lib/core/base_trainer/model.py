@@ -40,7 +40,7 @@ class Net(nn.Module):
 
 
                                     )
-        self.model = timm.create_model('tf_efficientnetv2_s_21ft1k', pretrained=True)
+        self.model = timm.create_model('tf_efficientnetv2_s_in21ft1k', pretrained=True)
 
 
 
