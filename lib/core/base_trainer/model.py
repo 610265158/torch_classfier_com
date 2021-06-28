@@ -31,16 +31,8 @@ class Net(nn.Module):
 
 
 
-        self.pre_conv=nn.Sequential(nn.Conv2d(1, 3, 3, stride=1, padding=1, bias=False),
-                                    nn.BatchNorm2d(3),
-                                    nn.ReLU6(),
-                                    nn.Conv2d(3, 3, 3, stride=1, padding=1, bias=False),
-                                    nn.BatchNorm2d(3),
-                                    nn.ReLU6(),
 
-
-                                    )
-        self.model = timm.create_model('tf_efficientnetv2_s_in21ft1k', pretrained=True)
+        self.model = timm.create_model('tf_efficientnet_b0_ns', pretrained=True)
 
 
 
@@ -50,15 +42,15 @@ class Net(nn.Module):
 
         self._fc = nn.Linear(1280 , num_classes, bias=True)
 
-    def forward(self, inputs):
+    def forward(self, X):
 
         #do preprocess
 
-
-        bs = inputs.size(0)
-        inputs=self.pre_conv(inputs)
+        bs = X.size(0)
+        X = torch.cat([X, X, X], dim=1)
         # Convolution layers
-        x = self.model.forward_features(inputs)
+        # Convolution layers
+        x = self.model.forward_features(X)
         fm = self._avg_pooling(x)
         fm = fm.view(bs, -1)
         feature = self.dropout(fm)
